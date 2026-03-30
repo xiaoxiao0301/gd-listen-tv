@@ -2,7 +2,9 @@ package com.xiaoxiao0301.amberplay.core.database.repository
 
 import com.xiaoxiao0301.amberplay.core.database.dao.HistoryDao
 import com.xiaoxiao0301.amberplay.core.database.dao.SongDao
+import com.xiaoxiao0301.amberplay.core.database.dao.StatsDao
 import com.xiaoxiao0301.amberplay.core.database.entity.PlayHistoryEntity
+import com.xiaoxiao0301.amberplay.core.database.entity.PlayStatEntity
 import com.xiaoxiao0301.amberplay.core.database.entity.SearchHistoryEntity
 import com.xiaoxiao0301.amberplay.core.database.mapper.toDomain
 import com.xiaoxiao0301.amberplay.core.database.mapper.toEntity
@@ -11,7 +13,6 @@ import com.xiaoxiao0301.amberplay.domain.model.PlayStat
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.HistoryRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,7 +20,8 @@ import javax.inject.Singleton
 @Singleton
 class HistoryRepositoryImpl @Inject constructor(
     private val historyDao: HistoryDao,
-    private val songDao: SongDao,
+    private val songDao:    SongDao,
+    private val statsDao:   StatsDao,
 ) : HistoryRepository {
 
     override fun getPlayHistory(limit: Int): Flow<List<PlayRecord>> =
@@ -62,7 +64,29 @@ class HistoryRepositoryImpl @Inject constructor(
         historyDao.clearSearchHistory()
     }
 
-    override fun getTopPlayStats(limit: Int): Flow<List<PlayStat>> = emptyFlow()
+    override fun getTopPlayStats(limit: Int): Flow<List<PlayStat>> =
+        statsDao.getTopStats(limit).map { statEntities ->
+            statEntities.mapNotNull { stat ->
+                val songEntity = songDao.getById(stat.songId) ?: return@mapNotNull null
+                PlayStat(
+                    song       = songEntity.toDomain(),
+                    playCount  = stat.playCount,
+                    totalMs    = stat.totalMs,
+                    lastPlayed = stat.lastPlayed,
+                )
+            }
+        }
 
-    override suspend fun incrementPlayStat(song: Song) { /* Sprint 3 中实现 */ }
+    override suspend fun incrementPlayStat(song: Song) {
+        songDao.upsert(song.toEntity())
+        val current = statsDao.getStatBySongId(song.id)
+        statsDao.upsertStat(
+            PlayStatEntity(
+                songId     = song.id,
+                playCount  = (current?.playCount ?: 0) + 1,
+                totalMs    = current?.totalMs ?: 0L,
+                lastPlayed = System.currentTimeMillis(),
+            )
+        )
+    }
 }

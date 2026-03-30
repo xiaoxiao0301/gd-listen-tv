@@ -1,5 +1,6 @@
 package com.xiaoxiao0301.amberplay.core.database.repository
 
+import android.content.Context
 import com.xiaoxiao0301.amberplay.core.database.dao.PlaylistDao
 import com.xiaoxiao0301.amberplay.core.database.dao.SongDao
 import com.xiaoxiao0301.amberplay.core.database.entity.PlaylistEntity
@@ -9,8 +10,14 @@ import com.xiaoxiao0301.amberplay.core.database.mapper.toEntity
 import com.xiaoxiao0301.amberplay.domain.model.Playlist
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.PlaylistRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,6 +26,7 @@ import javax.inject.Singleton
 class PlaylistRepositoryImpl @Inject constructor(
     private val playlistDao: PlaylistDao,
     private val songDao: SongDao,
+    @ApplicationContext private val context: Context,
 ) : PlaylistRepository {
 
     override fun getAllPlaylists(): Flow<List<Playlist>> =
@@ -72,9 +80,86 @@ class PlaylistRepositoryImpl @Inject constructor(
         playlistDao.reorderSong(playlistId, fromPos, toPos)
     }
 
-    override suspend fun exportPlaylists(): File =
-        throw NotImplementedError("Export not yet implemented — coming in Sprint 3")
+    // ─── Export ───────────────────────────────────────────────────────────────
 
-    override suspend fun importPlaylists(file: File) =
-        throw NotImplementedError("Import not yet implemented — coming in Sprint 3")
+    override suspend fun exportPlaylists(): File = withContext(Dispatchers.IO) {
+        val playlists = getAllPlaylists().first()
+        val root = JSONObject().apply {
+            put("version", 1)
+            put("exported_at", System.currentTimeMillis())
+            val playlistsArr = JSONArray()
+            playlists.forEach { playlist ->
+                val songs = getPlaylistSongs(playlist.id).first()
+                val songsArr = JSONArray()
+                songs.forEach { song ->
+                    songsArr.put(JSONObject().apply {
+                        put("id",       song.id)
+                        put("source",   song.source)
+                        put("track_id", song.trackId)
+                        put("name",     song.name)
+                        put("artists",  JSONArray(song.artists))
+                        put("album",    song.album)
+                        put("pic_id",   song.picId)
+                        put("lyric_id", song.lyricId)
+                    })
+                }
+                playlistsArr.put(JSONObject().apply {
+                    put("name",        playlist.name)
+                    put("description", playlist.description)
+                    put("songs",       songsArr)
+                })
+            }
+            put("playlists", playlistsArr)
+        }
+        val file = File(context.filesDir, "pltv_backup_${System.currentTimeMillis()}.json")
+        file.writeText(root.toString(2))
+        file
+    }
+
+    // ─── Import ───────────────────────────────────────────────────────────────
+
+    override suspend fun importPlaylists(file: File): Unit = withContext(Dispatchers.IO) {
+        val json   = JSONObject(file.readText())
+        val arr    = json.getJSONArray("playlists")
+        val now    = System.currentTimeMillis()
+
+        for (i in 0 until arr.length()) {
+            val pObj   = arr.getJSONObject(i)
+            val name   = pObj.getString("name")
+            val desc   = pObj.optString("description", "")
+            val entity = PlaylistEntity(name = name, description = desc,
+                createdAt = now, updatedAt = now)
+            val playlistId = playlistDao.insertPlaylist(entity).toInt()
+
+            val songsArr = pObj.getJSONArray("songs")
+            for (j in 0 until songsArr.length()) {
+                val sObj    = songsArr.getJSONObject(j)
+                val source  = sObj.getString("source")
+                val trackId = sObj.getString("track_id")
+                val id      = sObj.optString("id", "$source:$trackId")
+                val artistsRaw = sObj.getJSONArray("artists")
+                val artists = List(artistsRaw.length()) { artistsRaw.getString(it) }
+
+                val song = com.xiaoxiao0301.amberplay.domain.model.Song(
+                    id       = id,
+                    trackId  = trackId,
+                    source   = source,
+                    name     = sObj.getString("name"),
+                    artists  = artists,
+                    album    = sObj.optString("album", ""),
+                    picId    = sObj.optString("pic_id", ""),
+                    lyricId  = sObj.optString("lyric_id", ""),
+                )
+                songDao.upsert(song.toEntity())
+                playlistDao.insertCrossRef(
+                    PlaylistSongCrossRef(
+                        playlistId = playlistId,
+                        songId     = id,
+                        position   = j,
+                        addedAt    = now,
+                    )
+                )
+            }
+        }
+    }
 }

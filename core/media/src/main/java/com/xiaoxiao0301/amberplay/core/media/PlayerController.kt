@@ -42,17 +42,48 @@ class PlayerController @Inject constructor(
     private val _state = MutableStateFlow(PlaybackState())
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
+    /** Crossfade duration set by the ViewModel from DataStore. 0 = disabled. */
+    var crossfadeMs: Int = 0
+
     private val sleepTimer = SleepTimer()
     private var positionJob: Job? = null
+    private var crossfadeJob: Job? = null
 
     // ─── 公开控制方法 ────────────────────────────────────────────
 
     fun playSong(song: Song, url: String) {
-        player.setMediaItem(MediaItem.fromUri(url))
-        player.prepare()
-        player.play()
-        _state.value = _state.value.copy(currentSong = song, isPlaying = true)
-        startPositionPolling()
+        crossfadeJob?.cancel()
+        val fadeDuration = crossfadeMs
+        if (fadeDuration > 0 && player.isPlaying) {
+            crossfadeJob = scope.launch {
+                // Fade out current
+                val steps = 20
+                val stepDelayMs = (fadeDuration / 2 / steps).toLong().coerceAtLeast(10L)
+                for (i in steps downTo 0) {
+                    player.volume = i.toFloat() / steps
+                    delay(stepDelayMs)
+                }
+                // Switch track
+                player.setMediaItem(MediaItem.fromUri(url))
+                player.prepare()
+                player.play()
+                _state.value = _state.value.copy(currentSong = song, isPlaying = true)
+                startPositionPolling()
+                // Fade in
+                for (i in 0..steps) {
+                    player.volume = i.toFloat() / steps
+                    delay(stepDelayMs)
+                }
+                player.volume = 1.0f
+            }
+        } else {
+            player.volume = 1.0f
+            player.setMediaItem(MediaItem.fromUri(url))
+            player.prepare()
+            player.play()
+            _state.value = _state.value.copy(currentSong = song, isPlaying = true)
+            startPositionPolling()
+        }
     }
 
     fun playOrPause() {
@@ -106,6 +137,7 @@ class PlayerController @Inject constructor(
 
     fun release() {
         positionJob?.cancel()
+        crossfadeJob?.cancel()
         sleepTimer.cancel()
         player.release()
     }

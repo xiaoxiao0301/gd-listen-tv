@@ -18,4 +18,12 @@ sealed class Screen(val route: String) {
             fun createRoute(id: Int) = "playlist_detail/$id"
         }
     }
+
+    data class AlbumDetail(val dummy: Unit = Unit) : Screen("album_detail/{source}/{albumId}") {
+        companion object {
+            const val ROUTE = "album_detail/{source}/{albumId}"
+            fun createRoute(source: String, albumId: String) =
+                "album_detail/${source}/${albumId}"
+        }
+    }
 }

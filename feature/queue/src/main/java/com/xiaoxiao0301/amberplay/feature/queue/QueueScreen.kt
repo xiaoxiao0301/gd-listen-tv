@@ -87,17 +87,32 @@ fun QueueScreen(
                 Text("播放队列为空", color = OnSurfaceVariant, fontSize = 18.sp)
             }
         } else {
+            // reorderIndex != null  →  该行处于"移动模式"，▲▼ 高亮可操作
+            var reorderIndex by remember { mutableStateOf<Int?>(null) }
+
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 itemsIndexed(queue) { index, song ->
+                    val isReordering = reorderIndex == index
                     QueueSongRow(
-                        position    = index,
-                        song        = song,
-                        isPlaying   = song.id == currentSongId,
-                        onClick     = {
-                            viewModel.playAt(index)
-                            onSongSelected()
+                        position     = index,
+                        total        = queue.size,
+                        song         = song,
+                        isPlaying    = song.id == currentSongId,
+                        isReordering = isReordering,
+                        onClick      = {
+                            if (reorderIndex != null) { reorderIndex = null }
+                            else { viewModel.playAt(index); onSongSelected() }
                         },
-                        onRemove    = { viewModel.remove(index) },
+                        onToggleReorder = { reorderIndex = if (isReordering) null else index },
+                        onRemove     = { reorderIndex = null; viewModel.remove(index) },
+                        onMoveUp     = {
+                            viewModel.move(index, index - 1)
+                            reorderIndex = index - 1
+                        },
+                        onMoveDown   = {
+                            viewModel.move(index, index + 1)
+                            reorderIndex = index + 1
+                        },
                     )
                 }
             }
@@ -108,24 +123,30 @@ fun QueueScreen(
 @Composable
 private fun QueueSongRow(
     position: Int,
+    total: Int,
     song: Song,
     isPlaying: Boolean,
+    isReordering: Boolean,
     onClick: () -> Unit,
+    onToggleReorder: () -> Unit,
     onRemove: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+
+    val rowBg = when {
+        isReordering -> Purple.copy(alpha = 0.28f)
+        isPlaying    -> Purple.copy(alpha = 0.18f)
+        focused      -> SurfaceVariant
+        else         -> Surface
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(
-                when {
-                    isPlaying -> Purple.copy(alpha = 0.18f)
-                    focused   -> SurfaceVariant
-                    else      -> Surface
-                }
-            )
+            .background(rowBg)
             .clickable(onClick = onClick)
             .onFocusChanged { focused = it.isFocused }
             .focusable()
@@ -158,7 +179,7 @@ private fun QueueSongRow(
                 text       = song.name,
                 fontSize   = 17.sp,
                 fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.Normal,
-                color      = if (isPlaying) Purple else MaterialTheme.colorScheme.onSurface,
+                color      = if (isPlaying || isReordering) Purple else MaterialTheme.colorScheme.onSurface,
                 maxLines   = 1,
                 overflow   = TextOverflow.Ellipsis,
             )
@@ -170,7 +191,42 @@ private fun QueueSongRow(
             )
         }
 
-        // 移除按钮
+        // 拖拽排序切换（≡ 把手）
+        Text(
+            text     = "≡",
+            fontSize = 20.sp,
+            color    = if (isReordering) Purple else OnSurfaceVariant,
+            modifier = Modifier
+                .clickable(onClick = onToggleReorder)
+                .padding(horizontal = 6.dp, vertical = 8.dp),
+        )
+
+        // 上移 / 下移（仅 reorder 模式时高亮）
+        val arrowColor = if (isReordering) Purple else OnSurfaceVariant.copy(alpha = 0.5f)
+        if (position > 0) {
+            Text(
+                text     = "▲",
+                fontSize = 16.sp,
+                color    = arrowColor,
+                modifier = Modifier
+                    .clickable(onClick = onMoveUp)
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
+            )
+        } else {
+            Spacer(Modifier.width(28.dp))
+        }
+        if (position < total - 1) {
+            Text(
+                text     = "▼",
+                fontSize = 16.sp,
+                color    = arrowColor,
+                modifier = Modifier
+                    .clickable(onClick = onMoveDown)
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
+            )
+        } else {
+            Spacer(Modifier.width(28.dp))
+        }
         Text(
             text     = "✕",
             fontSize = 18.sp,

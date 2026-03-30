@@ -84,6 +84,11 @@ class LyricsViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
+    /** 跳转到指定歌词行对应的播放位置 */
+    fun seekToLine(timestampMs: Long) {
+        playerController.seekTo(timestampMs)
+    }
+
     fun cycleMode() {
         val next = when (_lyricMode.value) {
             LyricMode.ORIGINAL     -> LyricMode.TRANSLATION

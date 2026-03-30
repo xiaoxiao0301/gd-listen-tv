@@ -25,9 +25,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -127,6 +131,7 @@ fun LyricsScreen(
                             line      = line,
                             mode      = state.mode,
                             isActive  = idx == currentIdx,
+                            onClick   = { viewModel.seekToLine(line.timestampMs) },
                         )
                     }
                     item { Spacer(Modifier.height(200.dp)) }
@@ -141,7 +146,9 @@ private fun LyricLineItem(
     line: LyricLine,
     mode: LyricMode,
     isActive: Boolean,
+    onClick: () -> Unit = {},
 ) {
+    var focused by remember { mutableStateOf(false) }
     val textColor by animateColorAsState(
         targetValue = if (isActive) Purple else OnSurfaceVariant,
         animationSpec = tween(300),
@@ -150,6 +157,11 @@ private fun LyricLineItem(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (focused) Surface.copy(alpha = 0.5f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

@@ -18,10 +18,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +47,9 @@ import com.xiaoxiao0301.amberplay.core.common.theme.Purple
 import com.xiaoxiao0301.amberplay.core.common.theme.Surface
 import com.xiaoxiao0301.amberplay.core.media.PlayMode
 
+private val SLEEP_OPTIONS = listOf(0, 15, 30, 45, 60)
+private val SLEEP_LABELS  = listOf("关闭", "15 分钟", "30 分钟", "45 分钟", "60 分钟")
+
 @Composable
 fun PlayerScreen(
     onClose: () -> Unit = {},
@@ -53,6 +58,7 @@ fun PlayerScreen(
 ) {
     val state by viewModel.playbackState.collectAsStateWithLifecycle()
     val song   = state.currentSong
+    var showSleepDialog by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
@@ -144,8 +150,8 @@ fun PlayerScreen(
                 PlayerIconButton("⏭", 52.dp) { viewModel.skipNext() }
             }
 
-            // 播放模式 + 歌词入口
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            // 功能按钮行（播放模式、歌词、速度、睡眠定时）
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 val modeLabel = when (state.playMode) {
                     PlayMode.SEQUENTIAL -> "顺序"
                     PlayMode.REPEAT_ALL -> "循环全部"
@@ -154,8 +160,46 @@ fun PlayerScreen(
                 }
                 PlayerIconButton(modeLabel, 48.dp) { viewModel.cyclePlayMode() }
                 PlayerIconButton("歌词", 48.dp) { onOpenLyrics() }
+                // 播放速度
+                val speedLabel = when (state.speed) {
+                    0.75f  -> "0.75x"
+                    1.25f  -> "1.25x"
+                    1.5f   -> "1.5x"
+                    2.0f   -> "2.0x"
+                    else   -> "1.0x"
+                }
+                PlayerIconButton(speedLabel, 48.dp) { viewModel.cycleSpeed() }
+                // 睡眠定时
+                PlayerIconButton("⏰", 48.dp) { showSleepDialog = true }
             }
         }
+    }
+
+    // ─── 睡眠定时对话框 ───────────────────────────────────────────
+    if (showSleepDialog) {
+        AlertDialog(
+            onDismissRequest = { showSleepDialog = false },
+            title            = { Text("睡眠定时") },
+            text             = {
+                Column {
+                    SLEEP_OPTIONS.forEachIndexed { index, minutes ->
+                        TextButton(
+                            onClick = {
+                                viewModel.setSleepTimer(minutes)
+                                showSleepDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(SLEEP_LABELS[index], fontSize = 16.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showSleepDialog = false }) { Text("取消") }
+            },
+        )
     }
 }
 

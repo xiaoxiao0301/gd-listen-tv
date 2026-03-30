@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -33,6 +34,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.xiaoxiao0301.amberplay.core.common.network.NetworkMonitor
 import com.xiaoxiao0301.amberplay.core.common.theme.Purple
 import com.xiaoxiao0301.amberplay.core.common.theme.Surface
 import com.xiaoxiao0301.amberplay.feature.favorites.FavoritesScreen
@@ -44,9 +46,14 @@ import com.xiaoxiao0301.amberplay.feature.player.PlayerViewModel
 import com.xiaoxiao0301.amberplay.feature.playlist.PlaylistDetailScreen
 import com.xiaoxiao0301.amberplay.feature.playlist.PlaylistListScreen
 import com.xiaoxiao0301.amberplay.feature.queue.QueueScreen
+import com.xiaoxiao0301.amberplay.feature.search.AlbumDetailScreen
 import com.xiaoxiao0301.amberplay.feature.search.SearchScreen
 import com.xiaoxiao0301.amberplay.feature.settings.SettingsScreen
 import com.xiaoxiao0301.amberplay.feature.stats.StatsScreen
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.Dp
+import com.xiaoxiao0301.amberplay.AppViewModel
+import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceVariant
 
 private data class NavItem(val route: String, val icon: String, val label: String)
 
@@ -62,14 +69,16 @@ private val NAV_ITEMS = listOf(
 
 @Composable
 fun AppNavHost() {
-    // Activity 级别共享的 PlayerViewModel — 所有子屏幕操作同一个播放器实例
     val playerVm: PlayerViewModel = hiltViewModel()
+    val appVm: AppViewModel = hiltViewModel()
 
     val navController = rememberNavController()
     val entry         by navController.currentBackStackEntryAsState()
     val currentRoute  = entry?.destination?.route
+    val isOnline      by appVm.isOnline.collectAsStateWithLifecycle()
 
-    Row(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxSize()) {
         // ─── 侧边导航栏（全屏播放页和歌词页隐藏导航栏）────────────
         val hideNav = currentRoute == Screen.Player.route || currentRoute == Screen.Lyrics.route
         if (!hideNav) {
@@ -80,7 +89,19 @@ fun AppNavHost() {
         Column(Modifier.weight(1f)) {
             Box(Modifier.weight(1f)) {
                 NavHost(navController, startDestination = Screen.Home.route) {
-                    composable(Screen.Home.route) { HomeScreen() }
+                    composable(Screen.Home.route) {
+                        HomeScreen(
+                            onSongSelected = { song ->
+                                playerVm.playSong(song)
+                                navController.navigate(Screen.Player.route)
+                            },
+                            onSearchKeyword = { keyword ->
+                                navController.navigate(Screen.Search.route)
+                                // The keyword will be pre-filled via shared ViewModel or deep link
+                                // For now just navigate to search; keyword pre-fill is a UX enhancement
+                            },
+                        )
+                    }
                     composable(Screen.Search.route) {
                         SearchScreen(
                             onSongSelected = { song ->
@@ -135,6 +156,24 @@ fun AppNavHost() {
                     }
                     composable(Screen.Stats.route)    { StatsScreen() }
                     composable(Screen.Settings.route) { SettingsScreen() }
+                    // ─── 专辑详情 ──────────────────────────────
+                    composable(
+                        route     = Screen.AlbumDetail.ROUTE,
+                        arguments = listOf(
+                            navArgument("source")  { type = NavType.StringType },
+                            navArgument("albumId") { type = NavType.StringType },
+                        ),
+                    ) { back ->
+                        AlbumDetailScreen(
+                            source  = back.arguments?.getString("source") ?: "",
+                            albumId = back.arguments?.getString("albumId") ?: "",
+                            onSongSelected = { song ->
+                                playerVm.playSong(song)
+                                navController.navigate(Screen.Player.route)
+                            },
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                 }
             }
 
@@ -146,7 +185,26 @@ fun AppNavHost() {
                 )
             }
         }
-    }
+        } // end Row
+
+        // ─── 离线横幅（全局覆盖顶部） ─────────────────────────────
+        if (!isOnline) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp)
+                    .background(SurfaceVariant)
+                    .align(Alignment.TopCenter),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text      = "📵  离线模式 — 仅播放本地缓存歌曲",
+                    fontSize  = 14.sp,
+                    color     = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    } // end Box
 }
 
 @Composable

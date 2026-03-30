@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +31,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,6 +55,7 @@ import com.xiaoxiao0301.amberplay.core.common.theme.OnSurfaceVariant
 import com.xiaoxiao0301.amberplay.core.common.theme.Purple
 import com.xiaoxiao0301.amberplay.core.common.theme.Surface
 import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceVariant
+import com.xiaoxiao0301.amberplay.domain.model.Playlist
 import com.xiaoxiao0301.amberplay.domain.model.Song
 
 @Composable
@@ -63,9 +66,19 @@ fun SearchScreen(
     val uiState     by viewModel.uiState.collectAsStateWithLifecycle()
     val history     by viewModel.searchHistory.collectAsStateWithLifecycle()
     val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val playlists   by viewModel.playlists.collectAsStateWithLifecycle()
     val snackbar    = remember { SnackbarHostState() }
     var query       by remember { mutableStateOf("") }
     val fieldFocus  = remember { FocusRequester() }
+
+    // 加入歌单弹窗状态
+    var songForPlaylist by remember { mutableStateOf<Song?>(null) }
+
+    // 多选模式
+    var multiSelect  by remember { mutableStateOf(false) }
+    var selectedIds  by remember { mutableStateOf(setOf<String>()) }
+    // 批量"加入歌单"弹窗
+    var batchPlaylistPending by remember { mutableStateOf(false) }
 
     // 频率限制警告
     LaunchedEffect(Unit) {
@@ -80,20 +93,39 @@ fun SearchScreen(
                 .fillMaxSize()
                 .padding(horizontal = 48.dp, vertical = 24.dp)
         ) {
-            // ─── 搜索输入框 ──────────────────────────────────────
-            OutlinedTextField(
-                value         = query,
-                onValueChange = { query = it },
-                modifier      = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(fieldFocus),
-                label         = { Text("搜索歌曲、歌手、专辑") },
-                singleLine    = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
-                    onSearch = { viewModel.search(query) }
-                ),
-            )
+            // ─── 搜索输入框 + 多选按钮 ───────────────────────────
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier          = Modifier.fillMaxWidth(),
+            ) {
+                OutlinedTextField(
+                    value         = query,
+                    onValueChange = { query = it },
+                    modifier      = Modifier
+                        .weight(1f)
+                        .focusRequester(fieldFocus),
+                    label         = { Text("搜索歌曲、歌手、专辑") },
+                    singleLine    = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = { viewModel.search(query) }
+                    ),
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text     = if (multiSelect) "✓ 退出" else "☑ 多选",
+                    color    = if (multiSelect) Purple else OnSurfaceVariant,
+                    fontSize = 15.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SurfaceVariant)
+                        .clickable {
+                            multiSelect = !multiSelect
+                            if (!multiSelect) selectedIds = emptySet()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                )
+            }
 
             Spacer(Modifier.height(16.dp))
 
@@ -143,10 +175,21 @@ fun SearchScreen(
                     ) {
                         itemsIndexed(state.songs) { index, song ->
                             SongResultCard(
-                                song       = song,
-                                isFavorite = song.id in favoriteIds,
-                                onClick    = { onSongSelected(song) },
-                                onFavorite = { viewModel.toggleFavorite(song) },
+                                song            = song,
+                                isFavorite      = song.id in favoriteIds,
+                                isSelected      = song.id in selectedIds,
+                                multiSelect     = multiSelect,
+                                onClick = {
+                                    if (multiSelect) {
+                                        selectedIds = if (song.id in selectedIds)
+                                            selectedIds - song.id else selectedIds + song.id
+                                    } else {
+                                        onSongSelected(song)
+                                    }
+                                },
+                                onFavorite      = { viewModel.toggleFavorite(song) },
+                                onPlayNext      = { viewModel.playNext(song) },
+                                onAddToPlaylist = { songForPlaylist = song },
                             )
                             if (index == state.songs.lastIndex && state.hasMore) {
                                 LaunchedEffect(state.page) { viewModel.loadNextPage() }
@@ -158,41 +201,170 @@ fun SearchScreen(
             }
         }
 
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = if (multiSelect && selectedIds.isNotEmpty()) 72.dp else 0.dp))
+
+        // ─── 批量操作底栏 ─────────────────────────────────────────
+        if (multiSelect && selectedIds.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(SurfaceVariant)
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "已选 ${selectedIds.size} 首",
+                    color    = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 15.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                val currentSongs = (uiState as? SearchUiState.Results)?.songs ?: emptyList()
+                Text(
+                    "❤ 批量收藏",
+                    color    = Purple,
+                    fontSize = 15.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Purple.copy(alpha = 0.15f))
+                        .clickable {
+                            viewModel.addBatchToFavorites(currentSongs.filter { it.id in selectedIds })
+                            selectedIds = emptySet()
+                            multiSelect = false
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                )
+                Text(
+                    "➕ 加入歌单",
+                    color    = Purple,
+                    fontSize = 15.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Purple.copy(alpha = 0.15f))
+                        .clickable { batchPlaylistPending = true }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                )
+            }
+        }
     }
+
+    // ─── 加入歌单弹窗（单曲） ─────────────────────────────────────
+    val targetSong = songForPlaylist
+    if (targetSong != null) {
+        AddToPlaylistDialog(
+            playlists   = playlists,
+            onDismiss   = { songForPlaylist = null },
+            onSelect    = { playlistId ->
+                viewModel.addSongToPlaylist(targetSong, playlistId)
+                songForPlaylist = null
+            },
+        )
+    }
+
+    // ─── 加入歌单弹窗（批量） ─────────────────────────────────────
+    if (batchPlaylistPending) {
+        val batchSongs = (uiState as? SearchUiState.Results)?.songs?.filter { it.id in selectedIds } ?: emptyList()
+        AddToPlaylistDialog(
+            playlists = playlists,
+            onDismiss = { batchPlaylistPending = false },
+            onSelect  = { playlistId ->
+                viewModel.addBatchToPlaylist(batchSongs, playlistId)
+                batchPlaylistPending = false
+                selectedIds = emptySet()
+                multiSelect = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun AddToPlaylistDialog(
+    playlists: List<Playlist>,
+    onDismiss: () -> Unit,
+    onSelect:  (Int) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("加入歌单") },
+        text  = {
+            if (playlists.isEmpty()) {
+                Text("还没有歌单，请先在歌单页面创建", color = OnSurfaceVariant)
+            } else {
+                Column {
+                    playlists.forEach { playlist ->
+                        TextButton(
+                            onClick  = { onSelect(playlist.id) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(playlist.name, fontSize = 16.sp)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
 }
 
 @Composable
 private fun SongResultCard(
     song: Song,
     isFavorite: Boolean,
+    isSelected: Boolean,
+    multiSelect: Boolean,
     onClick: () -> Unit,
     onFavorite: () -> Unit,
+    onPlayNext: () -> Unit,
+    onAddToPlaylist: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+
+    val rowBg = when {
+        isSelected -> Purple.copy(alpha = 0.22f)
+        focused    -> SurfaceVariant
+        else       -> Surface
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(if (focused) SurfaceVariant else Surface)
+            .background(rowBg)
             .clickable(onClick = onClick)
             .onFocusChanged { focused = it.isFocused }
             .focusable()
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 专辑封面（Coil 异步加载）
-        val picUrl = "https://music-api.gdstudio.xyz/api.php" +
-                "?types=pic&source=${song.source}&id=${song.picId}&size=300"
-        AsyncImage(
-            model             = picUrl,
-            contentDescription = song.name,
-            modifier          = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(SurfaceVariant),
-        )
+        // 多选复选标记 / 专辑封面
+        if (multiSelect) {
+            Box(
+                modifier          = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isSelected) Purple else SurfaceVariant),
+                contentAlignment  = Alignment.Center,
+            ) {
+                if (isSelected) {
+                    Text("✓", fontSize = 28.sp, color = Color.White)
+                }
+            }
+        } else {
+            val picUrl = "https://music-api.gdstudio.xyz/api.php" +
+                    "?types=pic&source=${song.source}&id=${song.picId}&size=300"
+            AsyncImage(
+                model             = picUrl,
+                contentDescription = song.name,
+                modifier          = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(SurfaceVariant),
+            )
+        }
 
         Spacer(Modifier.width(16.dp))
 
@@ -220,6 +392,26 @@ private fun SongResultCard(
                 .clickable(onClick = onFavorite)
                 .padding(8.dp),
         )
+
+        if (!multiSelect) {
+            // 下一首播放
+            Text(
+                text     = "⏭",
+                fontSize = 18.sp,
+                modifier = Modifier
+                    .clickable(onClick = onPlayNext)
+                    .padding(8.dp),
+            )
+
+            // 加入歌单
+            Text(
+                text     = "➕",
+                fontSize = 18.sp,
+                modifier = Modifier
+                    .clickable(onClick = onAddToPlaylist)
+                    .padding(8.dp),
+            )
+        }
 
         Spacer(Modifier.width(4.dp))
 

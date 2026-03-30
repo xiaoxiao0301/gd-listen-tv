@@ -4,9 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xiaoxiao0301.amberplay.core.network.ratelimit.RateLimitEvent
 import com.xiaoxiao0301.amberplay.core.network.ratelimit.RateLimiter
+import com.xiaoxiao0301.amberplay.core.media.PlayerController
+import com.xiaoxiao0301.amberplay.domain.model.Playlist
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.FavoriteRepository
 import com.xiaoxiao0301.amberplay.domain.repository.HistoryRepository
+import com.xiaoxiao0301.amberplay.domain.repository.PlaylistRepository
+import com.xiaoxiao0301.amberplay.domain.repository.QueueRepository
 import com.xiaoxiao0301.amberplay.domain.usecase.SearchMusicUseCase
 import com.xiaoxiao0301.amberplay.domain.usecase.ToggleFavoriteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,11 +36,14 @@ sealed class SearchUiState {
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
-    private val searchUseCase:  SearchMusicUseCase,
-    private val historyRepo:    HistoryRepository,
-    private val favoriteRepo:   FavoriteRepository,
-    private val toggleFavorite: ToggleFavoriteUseCase,
-    private val rateLimiter:    RateLimiter,
+    private val searchUseCase:   SearchMusicUseCase,
+    private val historyRepo:     HistoryRepository,
+    private val favoriteRepo:    FavoriteRepository,
+    private val toggleFavorite:  ToggleFavoriteUseCase,
+    private val rateLimiter:     RateLimiter,
+    private val playlistRepo:    PlaylistRepository,
+    private val queueRepo:       QueueRepository,
+    private val playerController: PlayerController,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SearchUiState>(SearchUiState.Idle)
@@ -52,6 +59,10 @@ class SearchViewModel @Inject constructor(
     val favoriteIds: StateFlow<Set<String>> = favoriteRepo.getFavorites()
         .map { songs -> songs.map { it.id }.toSet() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    /** 所有歌单（用于"加入歌单"弹窗） */
+    val playlists: StateFlow<List<Playlist>> = playlistRepo.getAllPlaylists()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private var lastKeyword = ""
     private var currentPage = 1
@@ -73,6 +84,7 @@ class SearchViewModel @Inject constructor(
         currentPage  = 1
         _uiState.value = SearchUiState.Loading
         viewModelScope.launch {
+            rateLimiter.acquire()
             historyRepo.addSearchHistory(keyword)
             searchUseCase(keyword, source, 1)
                 .onSuccess { songs ->
@@ -90,6 +102,7 @@ class SearchViewModel @Inject constructor(
         if (!current.hasMore) return
         val nextPage = current.page + 1
         viewModelScope.launch {
+            rateLimiter.acquire()
             searchUseCase(lastKeyword, null, nextPage)
                 .onSuccess { newSongs ->
                     _uiState.value = SearchUiState.Results(
@@ -110,5 +123,31 @@ class SearchViewModel @Inject constructor(
             val isFav = song.id in favoriteIds.value
             toggleFavorite(song, isFav)
         }
+    }
+
+    /** 将歌曲加入指定歌单 */
+    fun addSongToPlaylist(song: Song, playlistId: Int) {
+        viewModelScope.launch {
+            playlistRepo.addSongsToPlaylist(playlistId, listOf(song))
+        }
+    }
+
+    /** 将歌曲插入播放队列的下一首 */
+    fun playNext(song: Song) {
+        val currentIndex = playerController.state.value.currentIndex
+        viewModelScope.launch { queueRepo.addAsNext(currentIndex, song) }
+    }
+
+    /** 批量收藏 */
+    fun addBatchToFavorites(songs: List<Song>) {
+        viewModelScope.launch {
+            songs.filter { it.id !in favoriteIds.value }
+                 .forEach { song -> toggleFavorite(song, false) }
+        }
+    }
+
+    /** 批量加入歌单 */
+    fun addBatchToPlaylist(songs: List<Song>, playlistId: Int) {
+        viewModelScope.launch { playlistRepo.addSongsToPlaylist(playlistId, songs) }
     }
 }

@@ -1,5 +1,6 @@
 package com.xiaoxiao0301.amberplay.core.network.repository
 
+import com.xiaoxiao0301.amberplay.core.datastore.SettingsDataStore
 import com.xiaoxiao0301.amberplay.core.network.api.MusicApiService
 import com.xiaoxiao0301.amberplay.core.network.mapper.toDomain
 import com.xiaoxiao0301.amberplay.domain.model.Lyric
@@ -10,16 +11,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class MusicRepositoryImpl @Inject constructor(
-    private val api: MusicApiService,
+    private val api:           MusicApiService,
+    private val settingsStore: SettingsDataStore,
 ) : MusicRepository {
-
-    private val stableSources = listOf("netease", "kuwo", "joox", "bilibili")
 
     override suspend fun search(
         keyword: String,
@@ -27,7 +28,16 @@ class MusicRepositoryImpl @Inject constructor(
         page: Int,
     ): Result<List<Song>> = runCatching {
         withContext(Dispatchers.IO) {
-            val sources = if (source != null) listOf(source) else listOf("netease")
+            val sources: List<String> = if (source != null) {
+                listOf(source)
+            } else {
+                val settings = settingsStore.settings.first()
+                if (settings.multiSourceSearch) {
+                    settings.enabledSources.toList().ifEmpty { listOf(settings.defaultSource) }
+                } else {
+                    listOf(settings.defaultSource)
+                }
+            }
             coroutineScope {
                 sources.map { src ->
                     async {
