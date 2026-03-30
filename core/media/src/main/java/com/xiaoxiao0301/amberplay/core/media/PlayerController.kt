@@ -66,6 +66,10 @@ class PlayerController @Inject constructor(
 
     fun skipToNext() { player.seekToNextMediaItem() }
     fun skipToPrevious() { player.seekToPreviousMediaItem() }
+    fun skipToIndex(index: Int) {
+        player.seekTo(index, 0L)
+        if (!player.isPlaying) player.play()
+    }
 
     fun setSpeed(speed: Float) {
         player.setPlaybackSpeed(speed.coerceIn(0.5f, 2.0f))

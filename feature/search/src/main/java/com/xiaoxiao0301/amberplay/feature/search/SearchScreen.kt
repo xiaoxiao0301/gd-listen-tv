@@ -62,6 +62,7 @@ fun SearchScreen(
 ) {
     val uiState     by viewModel.uiState.collectAsStateWithLifecycle()
     val history     by viewModel.searchHistory.collectAsStateWithLifecycle()
+    val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val snackbar    = remember { SnackbarHostState() }
     var query       by remember { mutableStateOf("") }
     val fieldFocus  = remember { FocusRequester() }
@@ -142,10 +143,11 @@ fun SearchScreen(
                     ) {
                         itemsIndexed(state.songs) { index, song ->
                             SongResultCard(
-                                song    = song,
-                                onClick = { onSongSelected(song) },
+                                song       = song,
+                                isFavorite = song.id in favoriteIds,
+                                onClick    = { onSongSelected(song) },
+                                onFavorite = { viewModel.toggleFavorite(song) },
                             )
-                            // 到达列表末尾时加载下一页
                             if (index == state.songs.lastIndex && state.hasMore) {
                                 LaunchedEffect(state.page) { viewModel.loadNextPage() }
                             }
@@ -163,7 +165,9 @@ fun SearchScreen(
 @Composable
 private fun SongResultCard(
     song: Song,
+    isFavorite: Boolean,
     onClick: () -> Unit,
+    onFavorite: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
 
@@ -207,6 +211,17 @@ private fun SongResultCard(
                 maxLines = 1,
             )
         }
+
+        // 收藏按钮
+        Text(
+            text     = if (isFavorite) "❤" else "🤍",
+            fontSize = 20.sp,
+            modifier = Modifier
+                .clickable(onClick = onFavorite)
+                .padding(8.dp),
+        )
+
+        Spacer(Modifier.width(4.dp))
 
         // 来源角标
         Text(

@@ -48,6 +48,7 @@ import com.xiaoxiao0301.amberplay.core.media.PlayMode
 @Composable
 fun PlayerScreen(
     onClose: () -> Unit = {},
+    onOpenLyrics: () -> Unit = {},
     viewModel: PlayerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.playbackState.collectAsStateWithLifecycle()
@@ -143,7 +144,7 @@ fun PlayerScreen(
                 PlayerIconButton("⏭", 52.dp) { viewModel.skipNext() }
             }
 
-            // 播放模式
+            // 播放模式 + 歌词入口
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 val modeLabel = when (state.playMode) {
                     PlayMode.SEQUENTIAL -> "顺序"
@@ -152,6 +153,7 @@ fun PlayerScreen(
                     PlayMode.SHUFFLE    -> "随机"
                 }
                 PlayerIconButton(modeLabel, 48.dp) { viewModel.cyclePlayMode() }
+                PlayerIconButton("歌词", 48.dp) { onOpenLyrics() }
             }
         }
     }
