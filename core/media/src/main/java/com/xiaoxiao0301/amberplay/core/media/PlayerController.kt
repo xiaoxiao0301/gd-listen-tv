@@ -45,6 +45,13 @@ class PlayerController @Inject constructor(
     /** Crossfade duration set by the ViewModel from DataStore. 0 = disabled. */
     var crossfadeMs: Int = 0
 
+    /**
+     * 队列导航回调，由 PlayerViewModel.init 注册。
+     * PlayerController 本身不持有队列状态，所有上/下/跳转逻辑委托给 PlayerViewModel。
+     */
+    var onSkipToIndex:   ((Int) -> Unit)? = null
+    var onPlaybackEnded: (() -> Unit)?    = null
+
     private val sleepTimer = SleepTimer()
     private var positionJob: Job? = null
     private var crossfadeJob: Job? = null
@@ -95,11 +102,17 @@ class PlayerController @Inject constructor(
         _state.value = _state.value.copy(positionMs = positionMs)
     }
 
-    fun skipToNext() { player.seekToNextMediaItem() }
-    fun skipToPrevious() { player.seekToPreviousMediaItem() }
-    fun skipToIndex(index: Int) {
-        player.seekTo(index, 0L)
-        if (!player.isPlaying) player.play()
+    /**
+     * 这三个方法不再直接操作 ExoPlayer 多媒体列表（内部始终只有 1 条目）。
+     * 上/下/跳转逻辑由 PlayerViewModel 通过回调中心化处理。
+     */
+    fun skipToNext()            { onSkipToIndex?.invoke(state.value.currentIndex + 1) }
+    fun skipToPrevious()        { onSkipToIndex?.invoke(state.value.currentIndex - 1) }
+    fun skipToIndex(index: Int) { onSkipToIndex?.invoke(index) }
+
+    /** 由 PlayerViewModel 在 playSong() / navigateToIndex() 时调用，同步队列位置到 PlaybackState */
+    fun updateQueueContext(index: Int, size: Int) {
+        _state.value = _state.value.copy(currentIndex = index, queueSize = size)
     }
 
     fun setSpeed(speed: Float) {
@@ -151,8 +164,12 @@ class PlayerController @Inject constructor(
                 if (isPlaying) startPositionPolling() else positionJob?.cancel()
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY) {
-                    _state.value = _state.value.copy(durationMs = exo.duration.coerceAtLeast(0L))
+                when (playbackState) {
+                    Player.STATE_READY ->
+                        _state.value = _state.value.copy(durationMs = exo.duration.coerceAtLeast(0L))
+                    Player.STATE_ENDED ->
+                        // REPEAT_ONE 由 ExoPlayer 的 REPEAT_MODE_ONE 自动处理，不需要回调
+                        if (_state.value.playMode != PlayMode.REPEAT_ONE) onPlaybackEnded?.invoke()
                 }
             }
         })

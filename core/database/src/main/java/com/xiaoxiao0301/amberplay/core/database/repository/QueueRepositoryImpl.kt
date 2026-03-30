@@ -5,6 +5,7 @@ import com.xiaoxiao0301.amberplay.core.database.dao.SongDao
 import com.xiaoxiao0301.amberplay.core.database.entity.QueueItemEntity
 import com.xiaoxiao0301.amberplay.core.database.mapper.toDomain
 import com.xiaoxiao0301.amberplay.core.database.mapper.toEntity
+import com.xiaoxiao0301.amberplay.core.database.mapper.upsertPreserving
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.QueueRepository
 import kotlinx.coroutines.flow.Flow
@@ -22,7 +23,7 @@ class QueueRepositoryImpl @Inject constructor(
         queueDao.getQueueSongs().map { entities -> entities.map { it.toDomain() } }
 
     override suspend fun addToEnd(song: Song) {
-        songDao.upsert(song.toEntity())
+        songDao.upsertPreserving(song)
         val nextPos = (queueDao.getMaxPosition() ?: -1) + 1
         queueDao.insertItem(
             QueueItemEntity(position = nextPos, songId = song.id, insertedAt = System.currentTimeMillis())
@@ -30,7 +31,7 @@ class QueueRepositoryImpl @Inject constructor(
     }
 
     override suspend fun addAsNext(currentPosition: Int, song: Song) {
-        songDao.upsert(song.toEntity())
+        songDao.upsertPreserving(song)
         queueDao.insertAsNext(
             afterPos = currentPosition,
             item     = QueueItemEntity(

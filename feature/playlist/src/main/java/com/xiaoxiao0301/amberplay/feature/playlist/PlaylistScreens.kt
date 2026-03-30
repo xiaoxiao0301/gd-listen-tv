@@ -50,6 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.xiaoxiao0301.amberplay.core.common.theme.Background
 import com.xiaoxiao0301.amberplay.core.common.theme.OnSurfaceVariant
+import com.xiaoxiao0301.amberplay.core.common.ui.picUrl
 import com.xiaoxiao0301.amberplay.core.common.theme.Purple
 import com.xiaoxiao0301.amberplay.core.common.theme.Surface
 import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceVariant
@@ -234,7 +235,8 @@ fun PlaylistDetailScreen(
     viewModel: PlaylistDetailViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(playlistId) { viewModel.init(playlistId) }
-    val songs by viewModel.songs.collectAsStateWithLifecycle()
+    val songs    by viewModel.songs.collectAsStateWithLifecycle()
+    val playlist by viewModel.playlist.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -242,8 +244,11 @@ fun PlaylistDetailScreen(
             .background(Background)
             .padding(horizontal = 48.dp, vertical = 24.dp),
     ) {
-        Text("歌单", fontSize = 26.sp, fontWeight = FontWeight.Bold,
+        Text(playlist?.name ?: "歌单", fontSize = 26.sp, fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface)
+        if (songs.isNotEmpty()) {
+            Text("${songs.size} 首", fontSize = 14.sp, color = OnSurfaceVariant)
+        }
         Spacer(Modifier.height(16.dp))
         if (songs.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -287,8 +292,7 @@ private fun PlaylistSongRow(
     ) {
         Text("${index + 1}", fontSize = 14.sp, color = OnSurfaceVariant,
             modifier = Modifier.width(32.dp))
-        val picUrl = "https://music-api.gdstudio.xyz/api.php" +
-                "?types=pic&source=${song.source}&id=${song.picId}&size=200"
+        val picUrl = song.picUrl(200)
         AsyncImage(model = picUrl, contentDescription = song.name,
             modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).background(SurfaceVariant))
         Spacer(Modifier.width(12.dp))

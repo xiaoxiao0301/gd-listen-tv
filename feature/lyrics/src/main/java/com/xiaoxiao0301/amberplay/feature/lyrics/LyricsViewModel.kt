@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -75,14 +76,12 @@ class LyricsViewModel @Inject constructor(
     }
 
     /** 当前应高亮的歌词行下标 */
-    val currentLineIndex: StateFlow<Int> = playerController.state
-        .map { state ->
-            val ready = _uiState.value as? LyricsUiState.Ready ?: return@map 0
-            val pos   = state.positionMs
-            val idx   = ready.lines.indexOfLast { it.timestampMs <= pos }
-            if (idx < 0) 0 else idx
-        }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+    val currentLineIndex: StateFlow<Int> = combine(playerController.state, _uiState) { state, uiState ->
+        val ready = uiState as? LyricsUiState.Ready ?: return@combine 0
+        val pos   = state.positionMs
+        val idx   = ready.lines.indexOfLast { it.timestampMs <= pos }
+        if (idx < 0) 0 else idx
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
     /** 跳转到指定歌词行对应的播放位置 */
     fun seekToLine(timestampMs: Long) {

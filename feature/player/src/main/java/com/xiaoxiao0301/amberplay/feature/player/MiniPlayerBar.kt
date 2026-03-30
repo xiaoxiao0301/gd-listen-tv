@@ -34,6 +34,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.xiaoxiao0301.amberplay.core.common.theme.OnSurfaceVariant
+import com.xiaoxiao0301.amberplay.core.common.ui.picUrl
 import com.xiaoxiao0301.amberplay.core.common.theme.Purple
 import com.xiaoxiao0301.amberplay.core.common.theme.Surface
 import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceVariant
@@ -75,8 +76,7 @@ fun MiniPlayerBar(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // 封面缩略图
-            val picUrl = "https://music-api.gdstudio.xyz/api.php" +
-                    "?types=pic&source=${song.source}&id=${song.picId}&size=300"
+            val picUrl = song.picUrl()
             AsyncImage(
                 model              = picUrl,
                 contentDescription = song.name,

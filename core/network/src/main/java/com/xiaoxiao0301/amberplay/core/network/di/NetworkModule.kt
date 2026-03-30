@@ -9,7 +9,6 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -27,8 +26,9 @@ object NetworkModule {
     fun provideOkHttpClient(rateLimiter: RateLimiter): OkHttpClient =
         OkHttpClient.Builder()
             .addInterceptor { chain ->
-                // 在 OkHttp IO 线程上阻塞等待令牌
-                runBlocking { rateLimiter.acquire() }
+                // 同步获取令牌，不需要 runBlocking，不阻塞协程线程池
+                val waitMs = rateLimiter.acquireSync()
+                if (waitMs > 0) Thread.sleep(waitMs)
                 chain.proceed(chain.request())
             }
             .addNetworkInterceptor(

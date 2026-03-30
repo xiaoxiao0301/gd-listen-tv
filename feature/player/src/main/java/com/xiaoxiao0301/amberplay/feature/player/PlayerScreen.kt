@@ -46,6 +46,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.xiaoxiao0301.amberplay.core.common.theme.Background
+import com.xiaoxiao0301.amberplay.core.common.ui.picUrl
 import com.xiaoxiao0301.amberplay.core.common.theme.OnSurfaceVariant
 import com.xiaoxiao0301.amberplay.core.common.theme.Purple
 import com.xiaoxiao0301.amberplay.core.common.theme.Surface
@@ -77,10 +78,7 @@ fun PlayerScreen(
             .padding(48.dp),
     ) {
         // ─── 左侧：专辑封面 ──────────────────────────────────────
-        val picUrl = song?.let {
-            "https://music-api.gdstudio.xyz/api.php" +
-                    "?types=pic&source=${it.source}&id=${it.picId}&size=500"
-        }
+        val picUrl = song?.picUrl(500)
         AsyncImage(
             model              = picUrl,
             contentDescription = song?.name,

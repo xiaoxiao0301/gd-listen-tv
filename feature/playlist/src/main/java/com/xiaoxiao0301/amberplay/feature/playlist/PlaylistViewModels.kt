@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 import javax.inject.Inject
 
 // ─── 歌单列表 ViewModel ───────────────────────────────────────────────────────
@@ -77,14 +76,16 @@ class PlaylistViewModel @Inject constructor(
     fun importFromUri(uri: Uri) {
         viewModelScope.launch {
             runCatching {
-                withContext(Dispatchers.IO) {
-                    val tmp = File(context.cacheDir, "import_${System.currentTimeMillis()}.json")
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        tmp.outputStream().use { output -> input.copyTo(output) }
-                    }
-                    playlistRepo.importPlaylists(tmp)
-                    tmp.delete()
+                val jsonContent = withContext(Dispatchers.IO) {
+                    val input = context.contentResolver.openInputStream(uri)
+                        ?: error("无法读取文件")
+                    // BUG-07: 限制最大导入文件为 10 MB，防止 OOM
+                    val maxBytes = 10L * 1024 * 1024
+                    val bytes = input.use { it.readBytes() }
+                    require(bytes.size <= maxBytes) { "导入文件过大（上限 10 MB）" }
+                    bytes.toString(Charsets.UTF_8)
                 }
+                playlistRepo.importPlaylists(jsonContent)
                 _exportMessage.value = "导入成功"
             }.onFailure {
                 _exportMessage.value = "导入失败: ${it.message}"
@@ -102,10 +103,15 @@ class PlaylistDetailViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _playlistId = MutableStateFlow(0)
+    private val _playlist    = MutableStateFlow<Playlist?>(null)
+    val playlist: StateFlow<Playlist?> = _playlist.asStateFlow()
 
     fun init(playlistId: Int) {
         if (_playlistId.value == playlistId) return
         _playlistId.value = playlistId
+        viewModelScope.launch {
+            _playlist.value = playlistRepo.getPlaylist(playlistId)
+        }
     }
 
     val songs: StateFlow<List<Song>> = _playlistId

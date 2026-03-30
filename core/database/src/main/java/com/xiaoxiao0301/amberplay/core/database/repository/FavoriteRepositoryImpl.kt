@@ -5,6 +5,7 @@ import com.xiaoxiao0301.amberplay.core.database.dao.SongDao
 import com.xiaoxiao0301.amberplay.core.database.entity.FavoriteEntity
 import com.xiaoxiao0301.amberplay.core.database.mapper.toDomain
 import com.xiaoxiao0301.amberplay.core.database.mapper.toEntity
+import com.xiaoxiao0301.amberplay.core.database.mapper.upsertPreserving
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.FavoriteRepository
 import kotlinx.coroutines.flow.Flow
@@ -22,7 +23,7 @@ class FavoriteRepositoryImpl @Inject constructor(
         favoriteDao.getFavoriteSongs().map { list -> list.map { it.toDomain() } }
 
     override suspend fun addFavorite(song: Song) {
-        songDao.upsert(song.toEntity())
+        songDao.upsertPreserving(song)
         favoriteDao.addFavorite(
             FavoriteEntity(songId = song.id, addedAt = System.currentTimeMillis())
         )

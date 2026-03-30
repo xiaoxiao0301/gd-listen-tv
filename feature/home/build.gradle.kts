@@ -16,6 +16,7 @@ android {
     }
     kotlinOptions { jvmTarget = "11" }
     buildFeatures { compose = true }
+    testOptions { unitTests { all { it.useJUnitPlatform() } } }
 }
 
 dependencies {

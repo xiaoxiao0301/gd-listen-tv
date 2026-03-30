@@ -2,6 +2,7 @@ package com.xiaoxiao0301.amberplay.core.common.ui
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -40,6 +41,7 @@ fun TvFocusCard(
                 shape = shape,
             )
             .clip(shape)
+            .clickable(onClick = onClick)
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
             .animateContentSize(),

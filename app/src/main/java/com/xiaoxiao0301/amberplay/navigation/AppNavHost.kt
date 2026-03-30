@@ -231,10 +231,19 @@ private fun SideNavBar(navController: NavController, currentRoute: String?) {
     ) {
         NAV_ITEMS.forEach { item ->
             val selected = currentRoute == item.route
+            var focused by remember { mutableStateOf(false) }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(if (selected) Purple.copy(alpha = 0.2f) else Color.Transparent)
+                    .background(
+                        when {
+                            selected -> Purple.copy(alpha = 0.2f)
+                            focused  -> Purple.copy(alpha = 0.1f)
+                            else     -> Color.Transparent
+                        }
+                    )
+                    .onFocusChanged { focused = it.isFocused }
+                    .focusable()
                     .clickable { navController.navigate(item.route) }
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,

@@ -7,6 +7,7 @@ import com.xiaoxiao0301.amberplay.core.database.entity.PlaylistEntity
 import com.xiaoxiao0301.amberplay.core.database.entity.PlaylistSongCrossRef
 import com.xiaoxiao0301.amberplay.core.database.mapper.toDomain
 import com.xiaoxiao0301.amberplay.core.database.mapper.toEntity
+import com.xiaoxiao0301.amberplay.core.database.mapper.upsertPreserving
 import com.xiaoxiao0301.amberplay.domain.model.Playlist
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.PlaylistRepository
@@ -18,7 +19,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,11 +37,26 @@ class PlaylistRepositoryImpl @Inject constructor(
                     name        = entity.name,
                     description = entity.description,
                     coverSongId = entity.coverSongId,
+                    songCount   = playlistDao.getSongCount(entity.id),
                     createdAt   = entity.createdAt,
                     updatedAt   = entity.updatedAt,
                 )
             }
         }
+
+    override suspend fun getPlaylist(id: Int): Playlist? {
+        val entity = playlistDao.getPlaylistById(id) ?: return null
+        val count  = playlistDao.getSongCount(id)
+        return Playlist(
+            id          = entity.id,
+            name        = entity.name,
+            description = entity.description,
+            coverSongId = entity.coverSongId,
+            songCount   = count,
+            createdAt   = entity.createdAt,
+            updatedAt   = entity.updatedAt,
+        )
+    }
 
     override fun getPlaylistSongs(playlistId: Int): Flow<List<Song>> =
         playlistDao.getPlaylistSongs(playlistId).map { list -> list.map { it.toDomain() } }
@@ -60,7 +75,7 @@ class PlaylistRepositoryImpl @Inject constructor(
     override suspend fun addSongsToPlaylist(playlistId: Int, songs: List<Song>) {
         val maxPos = playlistDao.getMaxPosition(playlistId) ?: -1
         songs.forEachIndexed { index, song ->
-            songDao.upsert(song.toEntity())
+            songDao.upsertPreserving(song)
             playlistDao.insertCrossRef(
                 PlaylistSongCrossRef(
                     playlistId = playlistId,
@@ -116,8 +131,8 @@ class PlaylistRepositoryImpl @Inject constructor(
 
     // ─── Import ───────────────────────────────────────────────────────────────
 
-    override suspend fun importPlaylists(file: File): Unit = withContext(Dispatchers.IO) {
-        val json   = JSONObject(file.readText())
+    override suspend fun importPlaylists(jsonContent: String): Unit = withContext(Dispatchers.IO) {
+        val json   = JSONObject(jsonContent)
         val arr    = json.getJSONArray("playlists")
         val now    = System.currentTimeMillis()
 
@@ -148,7 +163,7 @@ class PlaylistRepositoryImpl @Inject constructor(
                     picId    = sObj.optString("pic_id", ""),
                     lyricId  = sObj.optString("lyric_id", ""),
                 )
-                songDao.upsert(song.toEntity())
+                songDao.upsertPreserving(song)
                 playlistDao.insertCrossRef(
                     PlaylistSongCrossRef(
                         playlistId = playlistId,

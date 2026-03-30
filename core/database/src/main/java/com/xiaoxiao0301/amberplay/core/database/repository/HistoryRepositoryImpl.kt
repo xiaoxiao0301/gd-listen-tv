@@ -8,6 +8,7 @@ import com.xiaoxiao0301.amberplay.core.database.entity.PlayStatEntity
 import com.xiaoxiao0301.amberplay.core.database.entity.SearchHistoryEntity
 import com.xiaoxiao0301.amberplay.core.database.mapper.toDomain
 import com.xiaoxiao0301.amberplay.core.database.mapper.toEntity
+import com.xiaoxiao0301.amberplay.core.database.mapper.upsertPreserving
 import com.xiaoxiao0301.amberplay.domain.model.PlayRecord
 import com.xiaoxiao0301.amberplay.domain.model.PlayStat
 import com.xiaoxiao0301.amberplay.domain.model.Song
@@ -38,7 +39,7 @@ class HistoryRepositoryImpl @Inject constructor(
         }
 
     override suspend fun addPlayRecord(song: Song, durationPlayedMs: Long) {
-        songDao.upsert(song.toEntity())
+        songDao.upsertPreserving(song)
         historyDao.insertPlayRecord(
             PlayHistoryEntity(
                 songId           = song.id,
@@ -78,13 +79,13 @@ class HistoryRepositoryImpl @Inject constructor(
         }
 
     override suspend fun incrementPlayStat(song: Song) {
-        songDao.upsert(song.toEntity())
+        songDao.upsertPreserving(song)
         val current = statsDao.getStatBySongId(song.id)
         statsDao.upsertStat(
             PlayStatEntity(
                 songId     = song.id,
                 playCount  = (current?.playCount ?: 0) + 1,
-                totalMs    = current?.totalMs ?: 0L,
+                totalMs    = (current?.totalMs ?: 0L) + song.durationMs,
                 lastPlayed = System.currentTimeMillis(),
             )
         )

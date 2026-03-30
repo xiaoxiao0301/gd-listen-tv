@@ -2,8 +2,11 @@ package com.xiaoxiao0301.amberplay.core.network.ratelimit
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -15,6 +18,9 @@ sealed class RateLimitEvent {
 
 /**
  * 令牌桶限速器，对应 API 约束：5 分钟内不超过 50 次请求
+ *
+ * - [acquireSync]：同步调用（OkHttp IO 线程），返回需等待 ms，调用方负责 Thread.sleep
+ * - [acquire]：挂起函数（ViewModel 等 coroutine 调用）
  */
 @Singleton
 class RateLimiter @Inject constructor() {
@@ -29,8 +35,31 @@ class RateLimiter @Inject constructor() {
     private val _events = MutableSharedFlow<RateLimitEvent>(extraBufferCapacity = 16)
     val events: SharedFlow<RateLimitEvent> = _events.asSharedFlow()
 
-    val remainingTokens: Int
-        get() = tokens.toInt()
+    private val _remainingTokens = MutableStateFlow(capacity)
+    /** 剩余令牌数（在 mutex 内更新，线程安全） */
+    val remainingTokens: StateFlow<Int> = _remainingTokens.asStateFlow()
+
+    /**
+     * 同步获取一个 token。
+     * 在 OkHttp 拦截器的 IO 线程上调用，不使用协程。
+     * @return 需要等待的毫秒数（拿到 token 则返回 0）
+     */
+    @Synchronized
+    fun acquireSync(): Long {
+        val now     = System.currentTimeMillis()
+        val elapsed = now - lastRefill
+        tokens      = minOf(capacity.toDouble(), tokens + elapsed.toDouble() * capacity / refillIntervalMs)
+        lastRefill  = now
+        return if (tokens >= 1.0) {
+            tokens -= 1.0
+            _remainingTokens.value = tokens.toInt()
+            0L
+        } else {
+            val fillRate = capacity.toDouble() / refillIntervalMs
+            val wait     = ((1.0 - tokens) / fillRate).toLong() + 100L
+            wait
+        }
+    }
 
     /** 消耗一个 token；不足时 suspend 直到补充 */
     suspend fun acquire() {
@@ -40,9 +69,9 @@ class RateLimiter @Inject constructor() {
                 refill()
                 if (tokens >= 1.0) {
                     tokens -= 1.0
+                    _remainingTokens.value = tokens.toInt()
                     return  // 拿到 token，直接返回
                 }
-                // 计算等待时间（不在锁内 delay，避免长期持锁）
                 val fillRate  = capacity.toDouble() / refillIntervalMs
                 waitMs        = ((1.0 - tokens) / fillRate).toLong() + 100L
             }

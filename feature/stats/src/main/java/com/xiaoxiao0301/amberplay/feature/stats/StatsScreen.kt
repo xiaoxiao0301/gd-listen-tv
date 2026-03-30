@@ -35,6 +35,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.xiaoxiao0301.amberplay.core.common.theme.OnSurfaceVariant
+import com.xiaoxiao0301.amberplay.core.common.ui.picUrl
 import com.xiaoxiao0301.amberplay.core.common.theme.Purple
 import com.xiaoxiao0301.amberplay.core.common.theme.Surface
 import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceVariant
@@ -192,8 +193,7 @@ private fun PlayCountBarChart(stats: List<PlayStat>) {
 
 @Composable
 private fun StatSongRow(rank: Int, stat: PlayStat) {
-    val picUrl = "https://music-api.gdstudio.xyz/api.php" +
-            "?types=pic&source=${stat.song.source}&id=${stat.song.picId}&size=200"
+    val picUrl = stat.song.picUrl(200)
     Row(
         modifier          = Modifier
             .fillMaxWidth()
