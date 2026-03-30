@@ -1,5 +1,6 @@
 package com.xiaoxiao0301.amberplay.core.network.di
 
+import com.xiaoxiao0301.amberplay.core.network.BuildConfig
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.xiaoxiao0301.amberplay.core.network.api.MusicApiService
@@ -20,7 +21,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    private const val BASE_URL = "https://music-api.gdstudio.xyz/"
+    private val BASE_URL get() = BuildConfig.MUSIC_API_BASE_URL
 
     @Provides @Singleton
     fun provideOkHttpClient(rateLimiter: RateLimiter): OkHttpClient =
@@ -32,8 +33,8 @@ object NetworkModule {
             }
             .addNetworkInterceptor(
                 HttpLoggingInterceptor().apply {
-                    // 仅在 DEBUG 构建时启用详细日志；Release 构建中 ProGuard 会移除
-                    level = HttpLoggingInterceptor.Level.BASIC
+                    level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC
+                            else HttpLoggingInterceptor.Level.NONE
                 }
             )
             .connectTimeout(15, TimeUnit.SECONDS)

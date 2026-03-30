@@ -9,7 +9,7 @@ plugins {
 android {
     namespace = "com.xiaoxiao0301.amberplay.feature.home"
     compileSdk = 36
-    defaultConfig { minSdk = 21 }
+    defaultConfig { minSdk = 23 }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11

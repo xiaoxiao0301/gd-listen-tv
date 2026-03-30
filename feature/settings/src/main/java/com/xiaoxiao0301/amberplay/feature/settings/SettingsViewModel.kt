@@ -2,6 +2,7 @@ package com.xiaoxiao0301.amberplay.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xiaoxiao0301.amberplay.core.cache.AudioCache
 import com.xiaoxiao0301.amberplay.core.datastore.AppSettings
 import com.xiaoxiao0301.amberplay.core.datastore.LyricMode
 import com.xiaoxiao0301.amberplay.core.datastore.SettingsDataStore
@@ -15,6 +16,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsDs: SettingsDataStore,
+    private val audioCache: AudioCache,
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = settingsDs.settings
@@ -54,6 +56,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setCacheLimitMb(mb: Int) = viewModelScope.launch {
         settingsDs.setCacheLimitMb(mb)
+        audioCache.updateLimit(mb)
     }
 
     fun setOfflineMode(enabled: Boolean) = viewModelScope.launch {

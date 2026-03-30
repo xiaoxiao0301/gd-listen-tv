@@ -61,6 +61,7 @@ import com.xiaoxiao0301.amberplay.domain.model.Song
 @Composable
 fun SearchScreen(
     onSongSelected: (Song) -> Unit = {},
+    onAlbumClick: (source: String, albumId: String) -> Unit = { _, _ -> },
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val uiState     by viewModel.uiState.collectAsStateWithLifecycle()
@@ -320,6 +321,7 @@ private fun SongResultCard(
     onFavorite: () -> Unit,
     onPlayNext: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    onAlbumClick: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
 
@@ -411,6 +413,17 @@ private fun SongResultCard(
                     .clickable(onClick = onAddToPlaylist)
                     .padding(8.dp),
             )
+
+            // 浏览专辑
+            if (onAlbumClick != null) {
+                Text(
+                    text     = "💿",
+                    fontSize = 18.sp,
+                    modifier = Modifier
+                        .clickable(onClick = onAlbumClick)
+                        .padding(8.dp),
+                )
+            }
         }
 
         Spacer(Modifier.width(4.dp))

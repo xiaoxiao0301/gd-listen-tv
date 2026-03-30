@@ -1,5 +1,7 @@
 package com.xiaoxiao0301.amberplay.navigation
 
+import android.net.Uri
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -107,7 +109,15 @@ fun AppNavHost() {
                             onSongSelected = { song ->
                                 playerVm.playSong(song)
                                 navController.navigate(Screen.Player.route)
-                            }
+                            },
+                            onAlbumClick = { source, albumId ->
+                                navController.navigate(
+                                    Screen.AlbumDetail.createRoute(
+                                        source,
+                                        Uri.encode(albumId),
+                                    )
+                                )
+                            },
                         )
                     }
                     composable(Screen.Playlists.route) {
@@ -134,7 +144,7 @@ fun AppNavHost() {
                             onSongSelected = { song ->
                                 playerVm.playSong(song)
                                 navController.navigate(Screen.Player.route)
-                            }
+                            },
                         )
                     }
                     composable(Screen.Queue.route) {

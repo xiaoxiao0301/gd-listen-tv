@@ -1,21 +1,68 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ─── Stack traces ────────────────────────────────────────────────────────────
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# ─── App domain / data models (JSON serialisation + Room reflection) ─────────
+-keep class com.xiaoxiao0301.amberplay.** { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# ─── Moshi ───────────────────────────────────────────────────────────────────
+# KSP-generated adapters are named <Class>JsonAdapter; keep them.
+-keep class **JsonAdapter { *; }
+-keepclassmembers class * {
+    @com.squareup.moshi.Json <fields>;
+    @com.squareup.moshi.Json <methods>;
+}
+# KotlinJsonAdapterFactory uses reflection for non-@JsonClass classes
+-keepclassmembers class * {
+    @com.squareup.moshi.JsonClass *;
+}
+-keep class com.squareup.moshi.** { *; }
+-keep interface com.squareup.moshi.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ─── Retrofit ────────────────────────────────────────────────────────────────
+-keepattributes Signature, RuntimeVisibleAnnotations, AnnotationDefault
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
+-keep class retrofit2.** { *; }
+-keep interface retrofit2.** { *; }
+
+# ─── OkHttp ──────────────────────────────────────────────────────────────────
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class okhttp3.** { *; }
+-keep interface okhttp3.** { *; }
+
+# ─── Room ────────────────────────────────────────────────────────────────────
+-keep class androidx.room.** { *; }
+-keep @androidx.room.Database class * { *; }
+-keep @androidx.room.Dao class * { *; }
+-keep @androidx.room.Entity class * { *; }
+-keepclassmembers @androidx.room.Entity class * { *; }
+
+# ─── Hilt / Dagger ───────────────────────────────────────────────────────────
+-keep class dagger.hilt.** { *; }
+-keep @dagger.hilt.android.lifecycle.HiltViewModel class * { *; }
+-keepclassmembers class * {
+    @javax.inject.Inject <init>(...);
+    @javax.inject.Inject <fields>;
+}
+
+# ─── Media3 / ExoPlayer ──────────────────────────────────────────────────────
+-keep class androidx.media3.** { *; }
+-dontwarn androidx.media3.**
+
+# ─── Kotlin coroutines ───────────────────────────────────────────────────────
+-keepclassmembernames class kotlinx.** {
+    volatile <fields>;
+}
+-dontwarn kotlinx.coroutines.**
+
+# ─── Coil ────────────────────────────────────────────────────────────────────
+-keep class coil3.** { *; }
+-dontwarn coil3.**
+
+# ─── Kotlin serialization metadata ───────────────────────────────────────────
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.**
+-keepclassmembers class kotlin.Metadata { *; }

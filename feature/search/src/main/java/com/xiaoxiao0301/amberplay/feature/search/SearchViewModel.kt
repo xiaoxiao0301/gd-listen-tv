@@ -84,7 +84,6 @@ class SearchViewModel @Inject constructor(
         currentPage  = 1
         _uiState.value = SearchUiState.Loading
         viewModelScope.launch {
-            rateLimiter.acquire()
             historyRepo.addSearchHistory(keyword)
             searchUseCase(keyword, source, 1)
                 .onSuccess { songs ->
@@ -102,7 +101,6 @@ class SearchViewModel @Inject constructor(
         if (!current.hasMore) return
         val nextPage = current.page + 1
         viewModelScope.launch {
-            rateLimiter.acquire()
             searchUseCase(lastKeyword, null, nextPage)
                 .onSuccess { newSongs ->
                     _uiState.value = SearchUiState.Results(

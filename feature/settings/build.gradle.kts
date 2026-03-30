@@ -7,12 +7,13 @@ plugins {
 }
 android {
     namespace = "com.xiaoxiao0301.amberplay.feature.settings"
-    compileSdk = 36; defaultConfig { minSdk = 21 }
+    compileSdk = 36; defaultConfig { minSdk = 23 }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_11; targetCompatibility = JavaVersion.VERSION_11 }
     kotlinOptions { jvmTarget = "11" }; buildFeatures { compose = true }
 }
 dependencies {
     implementation(project(":core:common")); implementation(project(":core:datastore"))
+    implementation(project(":core:cache"))
     implementation(libs.datastore.preferences)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

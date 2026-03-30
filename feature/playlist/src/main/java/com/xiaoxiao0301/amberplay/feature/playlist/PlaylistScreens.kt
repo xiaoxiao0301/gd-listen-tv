@@ -1,5 +1,7 @@
 package com.xiaoxiao0301.amberplay.feature.playlist
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -23,6 +25,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -58,7 +62,22 @@ fun PlaylistListScreen(
 ) {
     val playlists       by viewModel.playlists.collectAsStateWithLifecycle()
     val showDialog      by viewModel.showCreateDialog.collectAsStateWithLifecycle()
+    val exportMessage   by viewModel.exportMessage.collectAsStateWithLifecycle()
+    val snackbar        = remember { SnackbarHostState() }
     var newPlaylistName by remember { mutableStateOf("") }
+
+    // Show export/import feedback in snackbar
+    LaunchedEffect(exportMessage) {
+        exportMessage?.let {
+            snackbar.showSnackbar(it)
+            viewModel.clearExportMessage()
+        }
+    }
+
+    // SAF launcher for importing
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> if (uri != null) viewModel.importFromUri(uri) }
 
     if (showDialog) {
         AlertDialog(
@@ -91,6 +110,7 @@ fun PlaylistListScreen(
         )
     }
 
+    Box(Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -108,14 +128,38 @@ fun PlaylistListScreen(
                 fontWeight = FontWeight.Bold,
                 color      = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
-                text     = "+ 新建",
-                fontSize = 16.sp,
-                color    = Purple,
-                modifier = Modifier
-                    .clickable { viewModel.openCreateDialog() }
-                    .padding(8.dp),
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text     = "⬆ 导出",
+                    fontSize = 15.sp,
+                    color    = OnSurfaceVariant,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(SurfaceVariant)
+                        .clickable { viewModel.exportPlaylists() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+                Text(
+                    text     = "⬇ 导入",
+                    fontSize = 15.sp,
+                    color    = OnSurfaceVariant,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(SurfaceVariant)
+                        .clickable { importLauncher.launch(arrayOf("application/json", "*/*")) }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+                Text(
+                    text     = "+ 新建",
+                    fontSize = 15.sp,
+                    color    = Purple,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Purple.copy(alpha = 0.12f))
+                        .clickable { viewModel.openCreateDialog() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+            }
         }
 
         Spacer(Modifier.height(16.dp))
@@ -137,6 +181,12 @@ fun PlaylistListScreen(
             }
         }
     }
+
+    SnackbarHost(
+        hostState = snackbar,
+        modifier  = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
+    )
+    } // end Box
 }
 
 @Composable

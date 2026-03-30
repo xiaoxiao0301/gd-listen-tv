@@ -29,7 +29,7 @@ import com.xiaoxiao0301.amberplay.core.database.entity.SongEntity
         QueueItemEntity::class,
     ],
     version      = 1,
-    exportSchema = false,
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao

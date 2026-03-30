@@ -22,9 +22,13 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,7 +63,13 @@ fun PlayerScreen(
     val state by viewModel.playbackState.collectAsStateWithLifecycle()
     val song   = state.currentSong
     var showSleepDialog by remember { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
 
+    LaunchedEffect(Unit) {
+        viewModel.playerError.collect { msg -> snackbar.showSnackbar(msg) }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -201,6 +211,12 @@ fun PlayerScreen(
             },
         )
     }
+
+    SnackbarHost(
+        hostState = snackbar,
+        modifier  = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
+    )
+    } // end Box
 }
 
 @Composable

@@ -9,7 +9,7 @@ plugins {
 android {
     namespace = "com.xiaoxiao0301.amberplay.feature.player"
     compileSdk = 36
-    defaultConfig { minSdk = 21 }
+    defaultConfig { minSdk = 23 }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -23,6 +23,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))
+    implementation(project(":core:cache"))
     implementation(project(":core:datastore"))
     implementation(project(":core:media"))
     implementation(libs.datastore.preferences)

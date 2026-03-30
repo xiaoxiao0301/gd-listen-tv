@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xiaoxiao0301.amberplay.core.datastore.SettingsDataStore
 import com.xiaoxiao0301.amberplay.core.media.PlayerController
+import com.xiaoxiao0301.amberplay.core.media.PlayerService
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.FavoriteRepository
 import com.xiaoxiao0301.amberplay.domain.usecase.GetSongUrlUseCase
@@ -48,7 +49,6 @@ class FavoritesViewModel @Inject constructor(
 
     private fun startPlayerService() {
         context.startForegroundService(
-            Intent(context, Class.forName("com.xiaoxiao0301.amberplay.core.media.PlayerService"))
-        )
+            Intent(context, PlayerService::class.java))
     }
 }
