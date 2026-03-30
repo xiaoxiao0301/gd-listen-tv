@@ -82,7 +82,7 @@ class PlaylistRepositoryImpl @Inject constructor(
 
     // ─── Export ───────────────────────────────────────────────────────────────
 
-    override suspend fun exportPlaylists(): File = withContext(Dispatchers.IO) {
+    override suspend fun exportPlaylists(): String = withContext(Dispatchers.IO) {
         val playlists = getAllPlaylists().first()
         val root = JSONObject().apply {
             put("version", 1)
@@ -111,9 +111,7 @@ class PlaylistRepositoryImpl @Inject constructor(
             }
             put("playlists", playlistsArr)
         }
-        val file = File(context.filesDir, "pltv_backup_${System.currentTimeMillis()}.json")
-        file.writeText(root.toString(2))
-        file
+        root.toString(2)
     }
 
     // ─── Import ───────────────────────────────────────────────────────────────

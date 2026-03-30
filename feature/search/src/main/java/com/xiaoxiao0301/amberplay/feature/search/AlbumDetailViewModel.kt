@@ -3,7 +3,7 @@ package com.xiaoxiao0301.amberplay.feature.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xiaoxiao0301.amberplay.domain.model.Song
-import com.xiaoxiao0301.amberplay.domain.repository.MusicRepository
+import com.xiaoxiao0301.amberplay.domain.usecase.GetAlbumTracksUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +20,7 @@ sealed class AlbumUiState {
 
 @HiltViewModel
 class AlbumDetailViewModel @Inject constructor(
-    private val musicRepo: MusicRepository,
+    private val getAlbumTracks: GetAlbumTracksUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AlbumUiState>(AlbumUiState.Idle)
@@ -37,7 +37,7 @@ class AlbumDetailViewModel @Inject constructor(
     private fun load(source: String, albumId: String) {
         _uiState.value = AlbumUiState.Loading
         viewModelScope.launch {
-            musicRepo.getAlbumTracks(albumId, source)
+            getAlbumTracks(albumId, source)
                 .onSuccess { songs ->
                     _uiState.value = if (songs.isEmpty()) AlbumUiState.Error("专辑无曲目")
                     else AlbumUiState.Ready(songs)

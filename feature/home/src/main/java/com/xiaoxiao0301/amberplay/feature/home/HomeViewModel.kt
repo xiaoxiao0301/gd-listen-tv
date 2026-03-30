@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.HistoryRepository
+import com.xiaoxiao0301.amberplay.domain.usecase.GetPlayHistoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,11 +14,12 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    private val getPlayHistory: GetPlayHistoryUseCase,
     private val historyRepo: HistoryRepository,
 ) : ViewModel() {
 
     /** 最近播放歌曲（去重，最多 20 首） */
-    val recentSongs: StateFlow<List<Song>> = historyRepo.getPlayHistory(50)
+    val recentSongs: StateFlow<List<Song>> = getPlayHistory(50)
         .map { records -> records.map { it.song }.distinctBy { it.id }.take(20) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 

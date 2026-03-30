@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,12 +51,22 @@ fun FavoritesScreen(
 ) {
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
 
+    var multiSelectMode by remember { mutableStateOf(false) }
+    var selectedIds     by remember { mutableStateOf(emptySet<String>()) }
+
+    // Exit multi-select when list becomes empty
+    if (favorites.isEmpty() && multiSelectMode) {
+        multiSelectMode = false
+        selectedIds     = emptySet()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Background)
             .padding(horizontal = 48.dp, vertical = 24.dp),
     ) {
+        // ─── Header ─────────────────────────────────────────────────
         Row(
             modifier              = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -66,11 +78,44 @@ fun FavoritesScreen(
                 fontWeight = FontWeight.Bold,
                 color      = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
-                text     = "${favorites.size} 首",
-                fontSize = 16.sp,
-                color    = OnSurfaceVariant,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                if (multiSelectMode) {
+                    Text(
+                        text     = "已选 ${selectedIds.size} / ${favorites.size}",
+                        fontSize = 14.sp,
+                        color    = OnSurfaceVariant,
+                    )
+                    Text(
+                        text     = "取消",
+                        fontSize = 14.sp,
+                        color    = OnSurfaceVariant,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(SurfaceVariant)
+                            .clickable { multiSelectMode = false; selectedIds = emptySet() }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                } else {
+                    Text(
+                        text     = "${favorites.size} 首",
+                        fontSize = 16.sp,
+                        color    = OnSurfaceVariant,
+                    )
+                    if (favorites.isNotEmpty()) {
+                        Text(
+                            text     = "☑ 多选",
+                            fontSize = 14.sp,
+                            color    = Purple,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Purple.copy(alpha = 0.12f))
+                                .clickable { multiSelectMode = true }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(Modifier.height(16.dp))
@@ -81,15 +126,61 @@ fun FavoritesScreen(
                     fontSize = 18.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // ─── List ────────────────────────────────────────────────
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 itemsIndexed(favorites) { _, song ->
                     FavoriteSongRow(
-                        song     = song,
-                        onClick  = {
-                            viewModel.playSong(song)
-                            onSongSelected(song)
+                        song            = song,
+                        multiSelectMode = multiSelectMode,
+                        isSelected      = song.id in selectedIds,
+                        onClick         = {
+                            if (multiSelectMode) {
+                                selectedIds = if (song.id in selectedIds)
+                                    selectedIds - song.id else selectedIds + song.id
+                            } else {
+                                onSongSelected(song)
+                            }
                         },
-                        onRemove = { viewModel.removeFavorite(song) },
+                        onRemove        = { viewModel.removeFavorite(song) },
+                    )
+                }
+            }
+
+            // ─── Multi-select action bar ─────────────────────────────
+            if (multiSelectMode) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text     = "移除收藏（${selectedIds.size}）",
+                        fontSize = 15.sp,
+                        color    = if (selectedIds.isEmpty()) OnSurfaceVariant
+                                   else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (selectedIds.isEmpty()) SurfaceVariant
+                                        else Purple.copy(alpha = 0.18f))
+                            .clickable(enabled = selectedIds.isNotEmpty()) {
+                                viewModel.batchRemoveFavorites(selectedIds)
+                                selectedIds     = emptySet()
+                                multiSelectMode = false
+                            }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    )
+                    Text(
+                        text     = "全选",
+                        fontSize = 15.sp,
+                        color    = OnSurfaceVariant,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SurfaceVariant)
+                            .clickable { selectedIds = favorites.map { it.id }.toSet() }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                     )
                 }
             }
@@ -100,6 +191,8 @@ fun FavoritesScreen(
 @Composable
 private fun FavoriteSongRow(
     song: Song,
+    multiSelectMode: Boolean,
+    isSelected: Boolean,
     onClick: () -> Unit,
     onRemove: () -> Unit,
 ) {
@@ -109,13 +202,27 @@ private fun FavoriteSongRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(if (focused) SurfaceVariant else Surface)
+            .background(when {
+                isSelected -> Purple.copy(alpha = 0.18f)
+                focused    -> SurfaceVariant
+                else       -> Surface
+            })
             .clickable(onClick = onClick)
             .onFocusChanged { focused = it.isFocused }
             .focusable()
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (multiSelectMode) {
+            Checkbox(
+                checked         = isSelected,
+                onCheckedChange = { onClick() },
+                colors          = CheckboxDefaults.colors(checkedColor = Purple),
+                modifier        = Modifier.size(24.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+        }
+
         val picUrl = "https://music-api.gdstudio.xyz/api.php" +
                 "?types=pic&source=${song.source}&id=${song.picId}&size=300"
         AsyncImage(
@@ -146,15 +253,16 @@ private fun FavoriteSongRow(
             )
         }
 
-        // 取消收藏
-        Text(
-            text     = "❤",
-            fontSize = 22.sp,
-            color    = Purple,
-            modifier = Modifier
-                .clickable(onClick = onRemove)
-                .padding(8.dp),
-        )
+        // 取消收藏（单选模式下显示）
+        if (!multiSelectMode) {
+            Text(
+                text     = "❤",
+                fontSize = 22.sp,
+                color    = Purple,
+                modifier = Modifier
+                    .clickable(onClick = onRemove)
+                    .padding(8.dp),
+            )
+        }
     }
 }
-

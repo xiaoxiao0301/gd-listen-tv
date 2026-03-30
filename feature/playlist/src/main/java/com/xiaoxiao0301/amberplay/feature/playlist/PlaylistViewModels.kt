@@ -1,18 +1,13 @@
 package com.xiaoxiao0301.amberplay.feature.playlist
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.xiaoxiao0301.amberplay.core.datastore.SettingsDataStore
-import com.xiaoxiao0301.amberplay.core.media.PlayerController
-import com.xiaoxiao0301.amberplay.core.media.PlayerService
 import com.xiaoxiao0301.amberplay.domain.model.Playlist
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.PlaylistRepository
-import com.xiaoxiao0301.amberplay.domain.usecase.GetSongUrlUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +15,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -63,11 +57,16 @@ class PlaylistViewModel @Inject constructor(
         viewModelScope.launch { playlistRepo.deletePlaylist(id) }
     }
 
-    fun exportPlaylists() {
+    fun exportToUri(uri: Uri) {
         viewModelScope.launch {
             runCatching {
-                val file = playlistRepo.exportPlaylists()
-                _exportMessage.value = "已导出: ${file.name}"
+                val json = playlistRepo.exportPlaylists()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(json.toByteArray(Charsets.UTF_8))
+                    }
+                }
+                _exportMessage.value = "已导出"
             }.onFailure {
                 _exportMessage.value = "导出失败: ${it.message}"
                 Log.e("PlaylistVM", "Export failed", it)
@@ -99,11 +98,7 @@ class PlaylistViewModel @Inject constructor(
 
 @HiltViewModel
 class PlaylistDetailViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val playlistRepo:     PlaylistRepository,
-    private val playerController: PlayerController,
-    private val getSongUrl:       GetSongUrlUseCase,
-    private val settingsDs:       SettingsDataStore,
+    private val playlistRepo: PlaylistRepository,
 ) : ViewModel() {
 
     private val _playlistId = MutableStateFlow(0)
@@ -120,26 +115,10 @@ class PlaylistDetailViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    fun playSong(song: Song) {
-        viewModelScope.launch {
-            val br = settingsDs.settings.first().preferredBitrate
-            getSongUrl(song, br).onSuccess { songUrl ->
-                if (songUrl.url.isNotBlank()) {
-                    startPlayerService()
-                    playerController.playSong(song, songUrl.url)
-                }
-            }
-        }
-    }
-
     fun removeSong(songId: String) {
         val pid = _playlistId.value
         if (pid == 0) return
         viewModelScope.launch { playlistRepo.removeSongFromPlaylist(pid, songId) }
     }
 
-    private fun startPlayerService() {
-        context.startForegroundService(
-            Intent(context, PlayerService::class.java))
-    }
 }

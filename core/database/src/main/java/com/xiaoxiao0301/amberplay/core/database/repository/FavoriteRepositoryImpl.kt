@@ -32,6 +32,10 @@ class FavoriteRepositoryImpl @Inject constructor(
         favoriteDao.removeFavorite(songId)
     }
 
+    override suspend fun batchRemoveFavorites(songIds: List<String>) {
+        favoriteDao.batchRemoveFavorites(songIds)
+    }
+
     override fun isFavorite(songId: String): Flow<Boolean> =
         favoriteDao.isFavoriteFlow(songId).map { it > 0 }
 }

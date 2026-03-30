@@ -74,6 +74,11 @@ fun PlaylistListScreen(
         }
     }
 
+    // SAF launcher for exporting
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> if (uri != null) viewModel.exportToUri(uri) }
+
     // SAF launcher for importing
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -136,7 +141,10 @@ fun PlaylistListScreen(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
                         .background(SurfaceVariant)
-                        .clickable { viewModel.exportPlaylists() }
+                        .clickable {
+                            val ts = System.currentTimeMillis()
+                            exportLauncher.launch("pltv_backup_$ts.json")
+                        }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                 )
                 Text(
@@ -249,7 +257,7 @@ fun PlaylistDetailScreen(
                     PlaylistSongRow(
                         index    = index,
                         song     = song,
-                        onClick  = { viewModel.playSong(song); onSongSelected(song) },
+                        onClick  = { onSongSelected(song) },
                         onRemove = { viewModel.removeSong(song.id) },
                     )
                 }

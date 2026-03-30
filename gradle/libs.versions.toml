@@ -48,6 +48,8 @@ timber             = "5.0.1"
 junit5             = "5.11.0"
 mockk              = "1.13.12"
 turbine            = "1.1.0"
+androidx-test-ext  = "1.2.1"
+androidx-test-runner = "1.6.2"
 
 [libraries]
 # AndroidX core
@@ -123,6 +125,9 @@ junit5                          = { group = "org.junit.jupiter",       name = "j
 mockk                           = { group = "io.mockk",                name = "mockk",                    version.ref = "mockk" }
 turbine                         = { group = "app.cash.turbine",        name = "turbine",                  version.ref = "turbine" }
 kotlinx-coroutines-test         = { group = "org.jetbrains.kotlinx",   name = "kotlinx-coroutines-test",  version.ref = "coroutines" }
+room-testing                    = { group = "androidx.room",           name = "room-testing",              version.ref = "room" }
+androidx-test-ext-junit         = { group = "androidx.test.ext",       name = "junit",                    version.ref = "androidx-test-ext" }
+androidx-test-runner            = { group = "androidx.test",           name = "runner",                   version.ref = "androidx-test-runner" }
 
 [plugins]
 android-application  = { id = "com.android.application",            version.ref = "agp" }

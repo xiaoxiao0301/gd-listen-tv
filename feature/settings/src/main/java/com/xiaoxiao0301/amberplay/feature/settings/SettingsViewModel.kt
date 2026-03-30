@@ -6,9 +6,13 @@ import com.xiaoxiao0301.amberplay.core.cache.AudioCache
 import com.xiaoxiao0301.amberplay.core.datastore.AppSettings
 import com.xiaoxiao0301.amberplay.core.datastore.LyricMode
 import com.xiaoxiao0301.amberplay.core.datastore.SettingsDataStore
+import com.xiaoxiao0301.amberplay.core.network.ratelimit.RateLimiter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -17,10 +21,26 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val settingsDs: SettingsDataStore,
     private val audioCache: AudioCache,
+    private val rateLimiter: RateLimiter,
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = settingsDs.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
+
+    private val _cacheUsedMb = MutableStateFlow(audioCache.usedBytes() / (1024L * 1024L))
+    val cacheUsedMb: StateFlow<Long> = _cacheUsedMb.asStateFlow()
+
+    private val _remainingTokens = MutableStateFlow(rateLimiter.remainingTokens)
+    val remainingTokens: StateFlow<Int> = _remainingTokens.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            while (true) {
+                delay(2_000L)
+                _remainingTokens.value = rateLimiter.remainingTokens
+            }
+        }
+    }
 
     fun setBitrate(br: Int) = viewModelScope.launch { settingsDs.setBitrate(br) }
 
@@ -54,9 +74,18 @@ class SettingsViewModel @Inject constructor(
         settingsDs.setSleepTimerMin(minutes)
     }
 
+    fun setCrossfadeMs(ms: Int) = viewModelScope.launch {
+        settingsDs.setCrossfadeMs(ms)
+    }
+
     fun setCacheLimitMb(mb: Int) = viewModelScope.launch {
         settingsDs.setCacheLimitMb(mb)
         audioCache.updateLimit(mb)
+    }
+
+    fun clearCache() {
+        audioCache.clear()
+        _cacheUsedMb.value = 0L
     }
 
     fun setOfflineMode(enabled: Boolean) = viewModelScope.launch {

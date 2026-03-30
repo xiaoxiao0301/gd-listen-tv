@@ -55,7 +55,30 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun getSongUrl(song: Song, preferredBr: Int): Result<SongUrl> =
         runCatching {
             withContext(Dispatchers.IO) {
-                api.getSongUrl(source = song.source, id = song.trackId, br = preferredBr)
+                val settings = settingsStore.settings.first()
+                // Build a source order: preferred source first, then remaining enabled sources
+                val fallbacks = (listOf(song.source) +
+                        settings.enabledSources.filter { it != song.source })
+                    .take(3)   // at most 3 attempts total
+
+                var lastUrl = ""
+                var lastException: Throwable? = null
+                for (src in fallbacks) {
+                    try {
+                        val songUrl = api.getSongUrl(
+                            source = src,
+                            id     = song.trackId,
+                            br     = preferredBr,
+                        ).toDomain()
+                        if (songUrl.url.isNotBlank()) return@withContext songUrl
+                        lastUrl = songUrl.url  // blank – try next source
+                    } catch (e: Exception) {
+                        lastException = e
+                    }
+                }
+                if (lastException != null) throw lastException
+                // All sources returned blank URL — return the last (blank) result
+                api.getSongUrl(source = fallbacks.last(), id = song.trackId, br = preferredBr)
                     .toDomain()
             }
         }

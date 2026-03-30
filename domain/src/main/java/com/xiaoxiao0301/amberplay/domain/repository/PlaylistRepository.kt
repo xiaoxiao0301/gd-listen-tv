@@ -13,6 +13,6 @@ interface PlaylistRepository {
     suspend fun addSongsToPlaylist(playlistId: Int, songs: List<Song>)
     suspend fun removeSongFromPlaylist(playlistId: Int, songId: String)
     suspend fun reorderSong(playlistId: Int, fromPos: Int, toPos: Int)
-    suspend fun exportPlaylists(): File
+    suspend fun exportPlaylists(): String
     suspend fun importPlaylists(file: File)
 }

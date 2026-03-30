@@ -24,6 +24,9 @@ interface FavoriteDao {
     @Query("DELETE FROM favorites WHERE song_id = :songId")
     suspend fun removeFavorite(songId: String)
 
+    @Query("DELETE FROM favorites WHERE song_id IN (:songIds)")
+    suspend fun batchRemoveFavorites(songIds: List<String>)
+
     @Query("SELECT COUNT(*) FROM favorites WHERE song_id = :songId")
     fun isFavoriteFlow(songId: String): Flow<Int>
 }

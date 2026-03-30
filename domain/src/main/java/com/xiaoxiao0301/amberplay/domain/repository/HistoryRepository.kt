@@ -13,4 +13,6 @@ interface HistoryRepository {
     suspend fun clearSearchHistory()
     fun getTopPlayStats(limit: Int = 10): Flow<List<PlayStat>>
     suspend fun incrementPlayStat(song: Song)
+    fun getTotalPlayCount(): Flow<Long>
+    fun getTotalPlayDurationMs(): Flow<Long>
 }
