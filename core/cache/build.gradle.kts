@@ -14,6 +14,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
     kotlinOptions { jvmTarget = "11" }
+    testOptions { unitTests { all { it.useJUnitPlatform() } } }
 }
 
 dependencies {
@@ -21,4 +22,9 @@ dependencies {
     implementation(libs.okhttp.core)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+
+    testImplementation(libs.junit5)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
 }

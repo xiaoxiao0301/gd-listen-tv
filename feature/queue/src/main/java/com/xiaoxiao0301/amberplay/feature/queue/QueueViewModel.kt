@@ -2,8 +2,8 @@ package com.xiaoxiao0301.amberplay.feature.queue
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xiaoxiao0301.amberplay.core.media.IPlayerController
 import com.xiaoxiao0301.amberplay.core.media.PlaybackState
-import com.xiaoxiao0301.amberplay.core.media.PlayerController
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.QueueRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,8 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class QueueViewModel @Inject constructor(
-    private val queueRepo:       QueueRepository,
-    private val playerController: PlayerController,
+    private val queueRepo:        QueueRepository,
+    private val playerController: IPlayerController,
 ) : ViewModel() {
 
     val playbackState: StateFlow<PlaybackState> = playerController.state

@@ -127,4 +127,12 @@ class PlaylistDetailViewModel @Inject constructor(
         viewModelScope.launch { playlistRepo.removeSongFromPlaylist(pid, songId) }
     }
 
+    fun batchRemove(songIds: Set<String>) {
+        val pid = _playlistId.value
+        if (pid == 0 || songIds.isEmpty()) return
+        viewModelScope.launch {
+            songIds.forEach { playlistRepo.removeSongFromPlaylist(pid, it) }
+        }
+    }
+
 }

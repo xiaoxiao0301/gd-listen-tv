@@ -154,8 +154,7 @@ fun AppNavHost() {
                     }
                     composable(Screen.Player.route) {
                         PlayerScreen(
-                            viewModel = playerVm,
-                            onClose   = { navController.popBackStack() },
+                            onClose      = { navController.popBackStack() },
                             onOpenLyrics = { navController.navigate(Screen.Lyrics.route) },
                         )
                     }
@@ -190,8 +189,7 @@ fun AppNavHost() {
             // 迷你播放条（全屏播放页 + 歌词页隐藏）
             if (!hideNav) {
                 MiniPlayerBar(
-                    viewModel = playerVm,
-                    onExpand  = { navController.navigate(Screen.Player.route) }
+                    onExpand = { navController.navigate(Screen.Player.route) }
                 )
             }
         }

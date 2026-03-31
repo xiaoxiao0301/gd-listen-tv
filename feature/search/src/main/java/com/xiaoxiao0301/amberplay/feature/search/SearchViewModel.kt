@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xiaoxiao0301.amberplay.core.network.ratelimit.RateLimitEvent
 import com.xiaoxiao0301.amberplay.core.network.ratelimit.RateLimiter
-import com.xiaoxiao0301.amberplay.core.media.PlayerController
+import com.xiaoxiao0301.amberplay.core.media.IPlayerController
 import com.xiaoxiao0301.amberplay.domain.model.Playlist
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.FavoriteRepository
@@ -43,7 +43,7 @@ class SearchViewModel @Inject constructor(
     private val rateLimiter:     RateLimiter,
     private val playlistRepo:    PlaylistRepository,
     private val queueRepo:       QueueRepository,
-    private val playerController: PlayerController,
+    private val playerController: IPlayerController,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SearchUiState>(SearchUiState.Idle)

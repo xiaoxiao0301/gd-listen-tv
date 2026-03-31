@@ -17,6 +17,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
     kotlinOptions { jvmTarget = "11" }
+    testOptions { unitTests { all { it.useJUnitPlatform() } } }
     // Room 导出 schema 供迁移审计
     ksp {
         arg("room.schemaLocation", "$projectDir/schemas")
@@ -38,4 +39,9 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.turbine)
+
+    testImplementation(libs.junit5)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
 }

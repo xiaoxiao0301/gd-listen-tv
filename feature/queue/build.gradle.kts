@@ -22,4 +22,9 @@ dependencies {
     implementation(libs.hilt.android); implementation(libs.hilt.navigation.compose); ksp(libs.hilt.compiler)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+
+    testImplementation(libs.junit5)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
 }

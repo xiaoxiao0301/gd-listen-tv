@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xiaoxiao0301.amberplay.core.datastore.LyricMode
 import com.xiaoxiao0301.amberplay.core.datastore.SettingsDataStore
+import com.xiaoxiao0301.amberplay.core.media.IPlayerController
 import com.xiaoxiao0301.amberplay.core.media.PlaybackState
-import com.xiaoxiao0301.amberplay.core.media.PlayerController
 import com.xiaoxiao0301.amberplay.domain.model.Lyric
 import com.xiaoxiao0301.amberplay.domain.model.LyricLine
 import com.xiaoxiao0301.amberplay.domain.model.Song
@@ -31,7 +31,7 @@ sealed class LyricsUiState {
 
 @HiltViewModel
 class LyricsViewModel @Inject constructor(
-    val playerController: PlayerController,
+    val playerController: IPlayerController,
     private val getLyric: GetLyricUseCase,
     private val settingsDs: SettingsDataStore,
 ) : ViewModel() {

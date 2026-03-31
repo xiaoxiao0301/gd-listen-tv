@@ -23,7 +23,7 @@ import javax.inject.Singleton
 @Singleton
 class PlayerController @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : IPlayerController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     val player: ExoPlayer by lazy {
@@ -40,7 +40,7 @@ class PlayerController @Inject constructor(
     }
 
     private val _state = MutableStateFlow(PlaybackState())
-    val state: StateFlow<PlaybackState> = _state.asStateFlow()
+    override val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
     /** Crossfade duration set by the ViewModel from DataStore. 0 = disabled. */
     var crossfadeMs: Int = 0
@@ -59,6 +59,10 @@ class PlayerController @Inject constructor(
     // ─── 公开控制方法 ────────────────────────────────────────────
 
     fun playSong(song: Song, url: String) {
+        // SEC-01: Only allow http/https/file schemes to prevent ExoPlayer reading arbitrary URIs
+        require(url.startsWith("https://") || url.startsWith("http://") || url.startsWith("file://")) {
+            "Invalid playback URL scheme: ${url.substringBefore("://")}"
+        }
         crossfadeJob?.cancel()
         val fadeDuration = crossfadeMs
         if (fadeDuration > 0 && player.isPlaying) {
@@ -97,7 +101,7 @@ class PlayerController @Inject constructor(
         if (player.isPlaying) player.pause() else player.play()
     }
 
-    fun seekTo(positionMs: Long) {
+    override fun seekTo(positionMs: Long) {
         player.seekTo(positionMs)
         _state.value = _state.value.copy(positionMs = positionMs)
     }
@@ -106,9 +110,9 @@ class PlayerController @Inject constructor(
      * 这三个方法不再直接操作 ExoPlayer 多媒体列表（内部始终只有 1 条目）。
      * 上/下/跳转逻辑由 PlayerViewModel 通过回调中心化处理。
      */
-    fun skipToNext()            { onSkipToIndex?.invoke(state.value.currentIndex + 1) }
-    fun skipToPrevious()        { onSkipToIndex?.invoke(state.value.currentIndex - 1) }
-    fun skipToIndex(index: Int) { onSkipToIndex?.invoke(index) }
+    override fun skipToNext()            { onSkipToIndex?.invoke(state.value.currentIndex + 1) }
+    override fun skipToPrevious()        { onSkipToIndex?.invoke(state.value.currentIndex - 1) }
+    override fun skipToIndex(index: Int) { onSkipToIndex?.invoke(index) }
 
     /** 由 PlayerViewModel 在 playSong() / navigateToIndex() 时调用，同步队列位置到 PlaybackState */
     fun updateQueueContext(index: Int, size: Int) {
@@ -175,13 +179,16 @@ class PlayerController @Inject constructor(
         })
     }
 
-    /** 每 500 ms 轮询一次播放进度 */
+    /** 每 1000 ms 轮询一次播放进度，仅在进度实际变化时更新 StateFlow，减少无效重组 */
     private fun startPositionPolling() {
         positionJob?.cancel()
         positionJob = scope.launch {
             while (true) {
-                _state.value = _state.value.copy(positionMs = player.currentPosition)
-                delay(500L)
+                val newPos = player.currentPosition
+                if (newPos != _state.value.positionMs) {
+                    _state.value = _state.value.copy(positionMs = newPos)
+                }
+                delay(1_000L)
             }
         }
     }

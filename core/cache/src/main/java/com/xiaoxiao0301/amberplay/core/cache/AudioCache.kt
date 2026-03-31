@@ -6,6 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.util.LinkedHashMap
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,10 +31,28 @@ class AudioCache @Inject constructor(
     @Volatile
     private var limitBytes: Long = DEFAULT_LIMIT_BYTES
 
+    /**
+     * 内存 LRU 索引：cacheKey → 文件字节大小。
+     * 按插入/访问顺序维护（LRU: eldest = least recently used）。
+     * 所有写操作均在 synchronized(lruIndex) 内执行。
+     */
+    private val lruIndex: LinkedHashMap<String, Long> = run {
+        val map = LinkedHashMap<String, Long>(16, 0.75f, true)
+        // 初始化时一次性扫描文件系统，后续操作不再扫描
+        cacheDir.listFiles()
+            ?.filter { it.extension == "cache" }
+            ?.sortedBy { it.lastModified() }
+            ?.forEach { f ->
+                val k = f.nameWithoutExtension
+                map[k] = f.length()
+            }
+        map
+    }
+
     /** 正在进行中的下载 key 集合，防止同一 key 并发重复下载 */
     private val inProgress = ConcurrentHashMap<String, Unit>()
 
-    private val _usedBytesFlow = MutableStateFlow(usedBytes())
+    private val _usedBytesFlow = MutableStateFlow(lruIndex.values.sum())
     /** 当前缓存占用字节数的实时流 */
     val usedBytesFlow: StateFlow<Long> = _usedBytesFlow.asStateFlow()
 
@@ -50,12 +69,15 @@ class AudioCache @Inject constructor(
 
     /**
      * 返回缓存文件（供 ExoPlayer 直接以 file:// URI 播放）。
-     * 不存在则返回 null。同时 touch lastModified 以维持 LRU 顺序。
+     * 不存在则返回 null。同时更新内存 LRU 顺序。
      */
     fun getFile(source: String, trackId: String, br: Int): File? {
         val f = fileFor(source, trackId, br)
         if (!f.exists()) return null
+        val k = key(source, trackId, br)
         f.setLastModified(System.currentTimeMillis())
+        // 访问更新 LRU 顺序（LinkedHashMap accessOrder=true 会自动移到尾部）
+        synchronized(lruIndex) { lruIndex[k] = f.length() }
         return f
     }
 
@@ -93,7 +115,11 @@ class AudioCache @Inject constructor(
                     }
                     val dest = fileFor(source, trackId, br)
                     tmp.renameTo(dest)
-                    dest.takeIf { it.exists() }?.also { _usedBytesFlow.value = usedBytes() }
+                    dest.takeIf { it.exists() }?.also {
+                        val size = it.length()
+                        synchronized(lruIndex) { lruIndex[cacheKey] = size }
+                        _usedBytesFlow.value = synchronized(lruIndex) { lruIndex.values.sum() }
+                    }
                 }
             } finally {
                 inProgress.remove(cacheKey)
@@ -101,15 +127,13 @@ class AudioCache @Inject constructor(
         }.onFailure { Log.w(TAG, "Cache download error for $source/$trackId/$br", it) }
          .getOrNull()
 
-    /** 当前缓存占用字节数 */
-    fun usedBytes(): Long = cacheDir.listFiles()
-        ?.filter { it.extension == "cache" }
-        ?.sumOf { it.length() }
-        ?: 0L
+    /** 当前缓存占用字节数（从内存索引读取，不扫描文件系统） */
+    fun usedBytes(): Long = synchronized(lruIndex) { lruIndex.values.sum() }
 
     /** 清除全部缓存文件 */
     fun clear() {
         cacheDir.listFiles()?.forEach { it.delete() }
+        synchronized(lruIndex) { lruIndex.clear() }
         _usedBytesFlow.value = 0L
     }
 
@@ -117,7 +141,7 @@ class AudioCache @Inject constructor(
     fun updateLimit(limitMb: Int) {
         limitBytes = limitMb.toLong() * 1024 * 1024
         evictIfNeeded(0L)
-        _usedBytesFlow.value = usedBytes()
+        _usedBytesFlow.value = synchronized(lruIndex) { lruIndex.values.sum() }
     }
 
     // ─── 内部 ─────────────────────────────────────────────────────────────────
@@ -131,17 +155,21 @@ class AudioCache @Inject constructor(
             .take(120)
 
     private fun evictIfNeeded(incoming: Long) {
-        if (limitBytes <= 0L) return
-        val files = cacheDir.listFiles()
-            ?.filter { it.extension == "cache" }
-            ?.sortedBy { it.lastModified() }
-            ?: return
-
-        var used = files.sumOf { it.length() }
-        for (f in files) {
-            if (used + incoming <= limitBytes) break
-            used -= f.length()
-            if (!f.delete()) Log.w(TAG, "Failed to evict ${f.name}")
+        if (limitBytes < 0L) return
+        synchronized(lruIndex) {
+            var used = lruIndex.values.sum()
+            // LinkedHashMap with accessOrder=true: iterator returns eldest (LRU) first
+            val iter = lruIndex.entries.iterator()
+            while (iter.hasNext() && used + incoming > limitBytes) {
+                val entry = iter.next()
+                val f = File(cacheDir, "${entry.key}.cache")
+                if (f.delete()) {
+                    used -= entry.value
+                    iter.remove()
+                } else {
+                    Log.w(TAG, "Failed to evict ${entry.key}")
+                }
+            }
         }
     }
 }

@@ -22,15 +22,15 @@ class RateLimiterTest {
     fun `can acquire up to full capacity without waiting`() = runTest {
         val limiter = RateLimiter()
         repeat(50) { limiter.acquire() }
-        assertEquals(0, limiter.remainingTokens)
+        assertEquals(0, limiter.remainingTokens.value)
     }
 
     @Test
     fun `remaining tokens decrease by 1 per acquire`() = runTest {
         val limiter = RateLimiter()
-        val before = limiter.remainingTokens
+        val before = limiter.remainingTokens.value
         limiter.acquire()
-        assertEquals(before - 1, limiter.remainingTokens)
+        assertEquals(before - 1, limiter.remainingTokens.value)
     }
 
     @Test

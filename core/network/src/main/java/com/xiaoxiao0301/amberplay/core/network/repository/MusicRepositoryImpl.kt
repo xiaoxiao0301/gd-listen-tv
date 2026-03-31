@@ -61,7 +61,7 @@ class MusicRepositoryImpl @Inject constructor(
                         settings.enabledSources.filter { it != song.source })
                     .take(3)   // at most 3 attempts total
 
-                var lastUrl = ""
+                var lastResult: SongUrl? = null
                 var lastException: Throwable? = null
                 for (src in fallbacks) {
                     try {
@@ -71,15 +71,14 @@ class MusicRepositoryImpl @Inject constructor(
                             br     = preferredBr,
                         ).toDomain()
                         if (songUrl.url.isNotBlank()) return@withContext songUrl
-                        lastUrl = songUrl.url  // blank – try next source
+                        lastResult = songUrl  // blank – try next source
                     } catch (e: Exception) {
                         lastException = e
                     }
                 }
                 if (lastException != null) throw lastException
-                // All sources returned blank URL — return the last (blank) result
-                api.getSongUrl(source = fallbacks.last(), id = song.trackId, br = preferredBr)
-                    .toDomain()
+                // All sources returned blank URL — return the last blank result (no extra network call)
+                lastResult ?: error("No song URL found for ${song.id}")
             }
         }
 

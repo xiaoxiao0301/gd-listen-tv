@@ -8,9 +8,7 @@ plugins {
 
 android {
     namespace = "com.xiaoxiao0301.amberplay"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.xiaoxiao0301.amberplay"

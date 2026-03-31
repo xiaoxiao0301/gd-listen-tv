@@ -42,6 +42,7 @@ import com.xiaoxiao0301.amberplay.core.common.theme.OnSurfaceVariant
 import com.xiaoxiao0301.amberplay.core.common.theme.Purple
 import com.xiaoxiao0301.amberplay.core.common.theme.Surface
 import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceVariant
+import com.xiaoxiao0301.amberplay.core.common.ui.picUrl
 import com.xiaoxiao0301.amberplay.domain.model.Song
 
 @Composable
@@ -223,10 +224,8 @@ private fun FavoriteSongRow(
             Spacer(Modifier.width(12.dp))
         }
 
-        val picUrl = "https://music-api.gdstudio.xyz/api.php" +
-                "?types=pic&source=${song.source}&id=${song.picId}&size=300"
         AsyncImage(
-            model              = picUrl,
+            model              = song.picUrl(300),
             contentDescription = song.name,
             modifier           = Modifier
                 .size(56.dp)

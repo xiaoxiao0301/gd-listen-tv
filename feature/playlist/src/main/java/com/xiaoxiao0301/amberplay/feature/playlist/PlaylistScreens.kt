@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -238,16 +239,45 @@ fun PlaylistDetailScreen(
     val songs    by viewModel.songs.collectAsStateWithLifecycle()
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
 
+    // ─── 多选状态 ────────────────────────────────────────────────
+    var multiSelect  by remember { mutableStateOf(false) }
+    var selectedIds  by remember { mutableStateOf(setOf<String>()) }
+
+    Box(Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Background)
             .padding(horizontal = 48.dp, vertical = 24.dp),
     ) {
-        Text(playlist?.name ?: "歌单", fontSize = 26.sp, fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface)
-        if (songs.isNotEmpty()) {
-            Text("${songs.size} 首", fontSize = 14.sp, color = OnSurfaceVariant)
+        // ─── 标题栏 ──────────────────────────────────────────────
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically,
+        ) {
+            Column {
+                Text(playlist?.name ?: "歌单", fontSize = 26.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface)
+                if (songs.isNotEmpty()) {
+                    Text("${songs.size} 首", fontSize = 14.sp, color = OnSurfaceVariant)
+                }
+            }
+            if (songs.isNotEmpty()) {
+                Text(
+                    text     = if (multiSelect) "取消" else "批量",
+                    fontSize = 15.sp,
+                    color    = if (multiSelect) OnSurfaceVariant else Purple,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (multiSelect) SurfaceVariant else Purple.copy(alpha = 0.12f))
+                        .clickable {
+                            multiSelect = !multiSelect
+                            selectedIds = emptySet()
+                        }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+            }
         }
         Spacer(Modifier.height(16.dp))
         if (songs.isEmpty()) {
@@ -257,44 +287,110 @@ fun PlaylistDetailScreen(
                     textAlign = TextAlign.Center)
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(
+                modifier             = Modifier.weight(1f),
+                verticalArrangement  = Arrangement.spacedBy(8.dp),
+            ) {
                 itemsIndexed(songs) { index, song ->
                     PlaylistSongRow(
-                        index    = index,
-                        song     = song,
-                        onClick  = { onSongSelected(song) },
+                        index      = index,
+                        song       = song,
+                        multiSelect = multiSelect,
+                        isSelected  = song.id in selectedIds,
+                        onClick = {
+                            if (multiSelect) {
+                                selectedIds = if (song.id in selectedIds)
+                                    selectedIds - song.id else selectedIds + song.id
+                            } else {
+                                onSongSelected(song)
+                            }
+                        },
                         onRemove = { viewModel.removeSong(song.id) },
                     )
                 }
             }
         }
     }
+
+    // ─── 批量操作底栏 ────────────────────────────────────────────
+    if (multiSelect && selectedIds.isNotEmpty()) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(SurfaceVariant)
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+        ) {
+            Text(
+                text     = "已选 ${selectedIds.size} 首",
+                fontSize = 15.sp,
+                color    = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text     = "移除",
+                fontSize = 15.sp,
+                color    = Color.Red,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.Red.copy(alpha = 0.1f))
+                    .clickable {
+                        viewModel.batchRemove(selectedIds)
+                        selectedIds = emptySet()
+                        multiSelect = false
+                    }
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+            )
+        }
+    }
+    } // end Box
 }
 
 @Composable
 private fun PlaylistSongRow(
     index: Int,
     song: Song,
+    multiSelect: Boolean = false,
+    isSelected: Boolean = false,
     onClick: () -> Unit,
     onRemove: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val bg = when {
+        isSelected -> Purple.copy(alpha = 0.22f)
+        focused    -> SurfaceVariant
+        else       -> Surface
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(if (focused) SurfaceVariant else Surface)
+            .background(bg)
             .clickable(onClick = onClick)
             .onFocusChanged { focused = it.isFocused }
             .focusable()
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("${index + 1}", fontSize = 14.sp, color = OnSurfaceVariant,
-            modifier = Modifier.width(32.dp))
-        val picUrl = song.picUrl(200)
-        AsyncImage(model = picUrl, contentDescription = song.name,
-            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).background(SurfaceVariant))
+        if (multiSelect) {
+            Box(
+                modifier         = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(if (isSelected) Purple else SurfaceVariant),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (isSelected) Text("✓", fontSize = 18.sp, color = Color.White)
+            }
+        } else {
+            Text("${index + 1}", fontSize = 14.sp, color = OnSurfaceVariant,
+                modifier = Modifier.width(32.dp))
+            val picUrl = song.picUrl(200)
+            AsyncImage(model = picUrl, contentDescription = song.name,
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).background(SurfaceVariant))
+        }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(song.name, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
@@ -302,7 +398,9 @@ private fun PlaylistSongRow(
                 overflow = TextOverflow.Ellipsis)
             Text(song.artistText, fontSize = 13.sp, color = OnSurfaceVariant, maxLines = 1)
         }
-        Text("✕", fontSize = 18.sp, color = OnSurfaceVariant,
-            modifier = Modifier.clickable(onClick = onRemove).padding(8.dp))
+        if (!multiSelect) {
+            Text("✕", fontSize = 18.sp, color = OnSurfaceVariant,
+                modifier = Modifier.clickable(onClick = onRemove).padding(8.dp))
+        }
     }
 }

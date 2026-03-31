@@ -3,14 +3,13 @@ package com.xiaoxiao0301.amberplay.core.database.mapper
 import com.xiaoxiao0301.amberplay.core.database.dao.SongDao
 import com.xiaoxiao0301.amberplay.core.database.entity.SongEntity
 import com.xiaoxiao0301.amberplay.domain.model.Song
-import org.json.JSONArray
 
 fun Song.toEntity(existingCreatedAt: Long? = null): SongEntity = SongEntity(
     id         = id,
     trackId    = trackId,
     source     = source,
     name       = name,
-    artists    = JSONArray(artists).toString(),
+    artists    = artists.encodeJsonStringArray(),
     album      = album,
     picId      = picId,
     lyricId    = lyricId,
@@ -39,7 +38,16 @@ fun SongEntity.toDomain(): Song = Song(
     durationMs = durationMs,
 )
 
+/** Serialise a [List<String>] to a compact JSON array — pure Kotlin, no Android deps. */
+private fun List<String>.encodeJsonStringArray(): String =
+    joinToString(",", "[", "]") { "\"${it.replace("\\", "\\\\").replace("\"", "\\\"")}\"" }
+
+/** Deserialise a JSON string array produced by [encodeJsonStringArray]. */
 private fun parseArtists(json: String): List<String> = runCatching {
-    val arr = JSONArray(json)
-    List(arr.length()) { arr.getString(it) }
+    val inner = json.trim().removePrefix("[").removeSuffix("]").trim()
+    if (inner.isBlank()) return@runCatching emptyList()
+    Regex(""""((?:[^"\\]|\\.)*)"""").findAll(inner)
+        .map { it.groupValues[1].replace("\\\"", "\"").replace("\\\\", "\\") }
+        .toList()
 }.getOrDefault(listOf(json))
+
