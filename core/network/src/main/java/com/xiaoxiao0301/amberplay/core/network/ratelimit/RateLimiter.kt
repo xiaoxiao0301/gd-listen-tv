@@ -19,8 +19,8 @@ sealed class RateLimitEvent {
 /**
  * 令牌桶限速器，对应 API 约束：5 分钟内不超过 50 次请求
  *
- * - [acquireSync]：同步调用（OkHttp IO 线程），返回需等待 ms，调用方负责 Thread.sleep
- * - [acquire]：挂起函数（ViewModel 等 coroutine 调用）
+ * [acquire] 挂起函数，在 MusicRepositoryImpl 中每次 API 调用前调用；
+ * 通过 [events] SharedFlow 向 ViewModel 广播等候事件以展示 Snackbar 提示。
  */
 @Singleton
 class RateLimiter @Inject constructor() {
@@ -38,28 +38,6 @@ class RateLimiter @Inject constructor() {
     private val _remainingTokens = MutableStateFlow(capacity)
     /** 剩余令牌数（在 mutex 内更新，线程安全） */
     val remainingTokens: StateFlow<Int> = _remainingTokens.asStateFlow()
-
-    /**
-     * 同步获取一个 token。
-     * 在 OkHttp 拦截器的 IO 线程上调用，不使用协程。
-     * @return 需要等待的毫秒数（拿到 token 则返回 0）
-     */
-    @Synchronized
-    fun acquireSync(): Long {
-        val now     = System.currentTimeMillis()
-        val elapsed = now - lastRefill
-        tokens      = minOf(capacity.toDouble(), tokens + elapsed.toDouble() * capacity / refillIntervalMs)
-        lastRefill  = now
-        return if (tokens >= 1.0) {
-            tokens -= 1.0
-            _remainingTokens.value = tokens.toInt()
-            0L
-        } else {
-            val fillRate = capacity.toDouble() / refillIntervalMs
-            val wait     = ((1.0 - tokens) / fillRate).toLong() + 100L
-            wait
-        }
-    }
 
     /** 消耗一个 token；不足时 suspend 直到补充 */
     suspend fun acquire() {

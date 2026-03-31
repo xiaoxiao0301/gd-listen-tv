@@ -29,6 +29,15 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlists WHERE id = :id")
     suspend fun getPlaylistById(id: Int): PlaylistEntity?
 
+    @Query("""
+        SELECT p.*, COUNT(ps.song_id) AS song_count
+        FROM playlists p
+        LEFT JOIN playlist_songs ps ON p.id = ps.playlist_id
+        WHERE p.id = :id
+        GROUP BY p.id
+    """)
+    suspend fun getPlaylistByIdWithCount(id: Int): PlaylistWithCount?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlaylist(playlist: PlaylistEntity): Long
 

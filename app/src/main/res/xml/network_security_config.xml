@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    OS-layer network security policy.
+    Enforces HTTPS-only for the music API domain even if the code-layer CertificatePinner
+    is bypassed, providing defence-in-depth (OWASP Mobile M3).
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">music-api.gdstudio.xyz</domain>
+    </domain-config>
+</network-security-config>

@@ -39,7 +39,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.xiaoxiao0301.amberplay.core.common.network.NetworkMonitor
 import com.xiaoxiao0301.amberplay.core.common.theme.Purple
 import com.xiaoxiao0301.amberplay.core.common.theme.Surface
 import com.xiaoxiao0301.amberplay.feature.favorites.FavoritesScreen
@@ -102,14 +101,24 @@ fun AppNavHost() {
                                 navController.navigate(Screen.Player.route)
                             },
                             onSearchKeyword = { keyword ->
-                                navController.navigate(Screen.Search.route)
-                                // The keyword will be pre-filled via shared ViewModel or deep link
-                                // For now just navigate to search; keyword pre-fill is a UX enhancement
+                                navController.navigate(
+                                    "search?keyword=${Uri.encode(keyword)}"
+                                )
                             },
                         )
                     }
-                    composable(Screen.Search.route) {
+                    composable(
+                        route = "search?keyword={keyword}",
+                        arguments = listOf(
+                            navArgument("keyword") {
+                                type         = NavType.StringType
+                                defaultValue = ""
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val initialKeyword = backStackEntry.arguments?.getString("keyword") ?: ""
                         SearchScreen(
+                            initialKeyword = initialKeyword,
                             onSongSelected = { song ->
                                 playerVm.playSong(song)
                                 navController.navigate(Screen.Player.route)
@@ -264,7 +273,7 @@ private fun SideNavBar(navController: NavController, currentRoute: String?) {
             .focusable()
     ) {
         NAV_ITEMS.forEach { item ->
-            val selected = currentRoute == item.route
+            val selected = currentRoute?.substringBefore("?") == item.route
             var focused by remember { mutableStateOf(false) }
             Row(
                 modifier = Modifier
@@ -278,7 +287,13 @@ private fun SideNavBar(navController: NavController, currentRoute: String?) {
                     )
                     .onFocusChanged { focused = it.isFocused }
                     .focusable()
-                    .clickable { navController.navigate(item.route) }
+                    .clickable {
+                        navController.navigate(item.route) {
+                            launchSingleTop = true
+                            restoreState    = true
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                        }
+                    }
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

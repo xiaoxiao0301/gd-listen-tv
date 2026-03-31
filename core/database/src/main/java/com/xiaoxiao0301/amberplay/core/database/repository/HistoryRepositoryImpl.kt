@@ -4,7 +4,6 @@ import com.xiaoxiao0301.amberplay.core.database.dao.HistoryDao
 import com.xiaoxiao0301.amberplay.core.database.dao.SongDao
 import com.xiaoxiao0301.amberplay.core.database.dao.StatsDao
 import com.xiaoxiao0301.amberplay.core.database.entity.PlayHistoryEntity
-import com.xiaoxiao0301.amberplay.core.database.entity.PlayStatEntity
 import com.xiaoxiao0301.amberplay.core.database.entity.SearchHistoryEntity
 import com.xiaoxiao0301.amberplay.core.database.mapper.toDomain
 import com.xiaoxiao0301.amberplay.core.database.mapper.toEntity
@@ -26,14 +25,13 @@ class HistoryRepositoryImpl @Inject constructor(
 ) : HistoryRepository {
 
     override fun getPlayHistory(limit: Int): Flow<List<PlayRecord>> =
-        historyDao.getPlayHistory(limit).map { records ->
-            records.mapNotNull { record ->
-                val songEntity = songDao.getById(record.songId) ?: return@mapNotNull null
+        historyDao.getPlayHistoryWithSongs(limit).map { rows ->
+            rows.map { row ->
                 PlayRecord(
-                    id               = record.id,
-                    song             = songEntity.toDomain(),
-                    playedAt         = record.playedAt,
-                    durationPlayedMs = record.durationPlayedMs,
+                    id               = row.history.id,
+                    song             = row.song.toDomain(),
+                    playedAt         = row.history.playedAt,
+                    durationPlayedMs = row.history.durationPlayedMs,
                 )
             }
         }
@@ -66,28 +64,23 @@ class HistoryRepositoryImpl @Inject constructor(
     }
 
     override fun getTopPlayStats(limit: Int): Flow<List<PlayStat>> =
-        statsDao.getTopStats(limit).map { statEntities ->
-            statEntities.mapNotNull { stat ->
-                val songEntity = songDao.getById(stat.songId) ?: return@mapNotNull null
+        statsDao.getTopStatsWithSongs(limit).map { rows ->
+            rows.map { row ->
                 PlayStat(
-                    song       = songEntity.toDomain(),
-                    playCount  = stat.playCount,
-                    totalMs    = stat.totalMs,
-                    lastPlayed = stat.lastPlayed,
+                    song       = row.song.toDomain(),
+                    playCount  = row.stat.playCount,
+                    totalMs    = row.stat.totalMs,
+                    lastPlayed = row.stat.lastPlayed,
                 )
             }
         }
 
     override suspend fun incrementPlayStat(song: Song) {
         songDao.upsertPreserving(song)
-        val current = statsDao.getStatBySongId(song.id)
-        statsDao.upsertStat(
-            PlayStatEntity(
-                songId     = song.id,
-                playCount  = (current?.playCount ?: 0) + 1,
-                totalMs    = (current?.totalMs ?: 0L) + song.durationMs,
-                lastPlayed = System.currentTimeMillis(),
-            )
+        statsDao.incrementStat(
+            songId     = song.id,
+            durationMs = song.durationMs,
+            now        = System.currentTimeMillis(),
         )
     }
 

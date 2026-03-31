@@ -82,7 +82,7 @@ class PlaylistViewModel @Inject constructor(
                 val jsonContent = withContext(Dispatchers.IO) {
                     val input = context.contentResolver.openInputStream(uri)
                         ?: error("无法读取文件")
-                    // BUG-07: 限制最大导入文件为 10 MB，防止 OOM
+                    // 限制导入文件最大 10 MB，防止超大 JSON 文件导致 OOM
                     val maxBytes = 10L * 1024 * 1024
                     val bytes = input.use { it.readBytes() }
                     require(bytes.size <= maxBytes) { "导入文件过大（上限 10 MB）" }

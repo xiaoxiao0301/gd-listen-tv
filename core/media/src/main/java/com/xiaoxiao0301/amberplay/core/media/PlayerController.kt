@@ -26,7 +26,7 @@ class PlayerController @Inject constructor(
 ) : IFullPlayerController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    val player: ExoPlayer by lazy {
+    override val player: ExoPlayer by lazy {
         ExoPlayer.Builder(context)
             .setAudioAttributes(
                 AudioAttributes.Builder()

@@ -3,6 +3,7 @@ package com.xiaoxiao0301.amberplay.core.network.repository
 import com.xiaoxiao0301.amberplay.core.datastore.SettingsDataStore
 import com.xiaoxiao0301.amberplay.core.network.api.MusicApiService
 import com.xiaoxiao0301.amberplay.core.network.mapper.toDomain
+import com.xiaoxiao0301.amberplay.core.network.ratelimit.RateLimiter
 import com.xiaoxiao0301.amberplay.domain.model.Lyric
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.model.SongUrl
@@ -20,6 +21,7 @@ import javax.inject.Singleton
 class MusicRepositoryImpl @Inject constructor(
     private val api:           MusicApiService,
     private val settingsStore: SettingsDataStore,
+    private val rateLimiter:   RateLimiter,
 ) : MusicRepository {
 
     override suspend fun search(
@@ -41,6 +43,7 @@ class MusicRepositoryImpl @Inject constructor(
             coroutineScope {
                 sources.map { src ->
                     async {
+                        rateLimiter.acquire()
                         runCatching { api.search(source = src, name = keyword, pages = page) }
                             .getOrDefault(emptyList())
                     }
@@ -65,6 +68,7 @@ class MusicRepositoryImpl @Inject constructor(
                 var lastException: Throwable? = null
                 for (src in fallbacks) {
                     try {
+                        rateLimiter.acquire()
                         val songUrl = api.getSongUrl(
                             source = src,
                             id     = song.trackId,
@@ -85,6 +89,7 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun getLyric(song: Song): Result<Lyric> =
         runCatching {
             withContext(Dispatchers.IO) {
+                rateLimiter.acquire()
                 api.getLyric(source = song.source, id = song.lyricId)
                     .toDomain()
             }
@@ -93,6 +98,7 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun getAlbumTracks(albumId: String, source: String): Result<List<Song>> =
         runCatching {
             withContext(Dispatchers.IO) {
+                rateLimiter.acquire()
                 api.search(source = "${source}_album", name = albumId)
                     .map { it.toDomain() }
             }

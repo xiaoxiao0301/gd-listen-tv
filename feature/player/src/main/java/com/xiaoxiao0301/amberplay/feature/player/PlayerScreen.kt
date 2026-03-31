@@ -170,6 +170,7 @@ fun PlayerScreen(
                 PlayerIconButton("歌词", 48.dp) { onOpenLyrics() }
                 // 播放速度
                 val speedLabel = when (state.speed) {
+                    0.5f   -> "0.5x"
                     0.75f  -> "0.75x"
                     1.25f  -> "1.25x"
                     1.5f   -> "1.5x"

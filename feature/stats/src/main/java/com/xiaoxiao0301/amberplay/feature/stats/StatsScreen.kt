@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -158,10 +159,14 @@ private fun PlayCountBarChart(stats: List<PlayStat>, onStatClick: (PlayStat) -> 
     ) {
         stats.forEach { stat ->
             val fraction = stat.playCount.toFloat() / maxCount.toFloat()
+            var focused by remember { mutableStateOf(false) }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier          = Modifier
                     .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (focused) SurfaceVariant else Color.Transparent)
+                    .onFocusChanged { focused = it.isFocused }
                     .clickable { onStatClick(stat) }
                     .focusable()
                     .padding(vertical = 4.dp),

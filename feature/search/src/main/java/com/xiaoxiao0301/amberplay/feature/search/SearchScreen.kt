@@ -62,6 +62,7 @@ import com.xiaoxiao0301.amberplay.domain.model.Song
 
 @Composable
 fun SearchScreen(
+    initialKeyword: String = "",
     onSongSelected: (Song) -> Unit = {},
     onAlbumClick: (source: String, albumId: String) -> Unit = { _, _ -> },
     onArtistClick: (source: String, artistName: String) -> Unit = { _, _ -> },
@@ -72,8 +73,13 @@ fun SearchScreen(
     val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val playlists   by viewModel.playlists.collectAsStateWithLifecycle()
     val snackbar    = remember { SnackbarHostState() }
-    var query       by remember { mutableStateOf("") }
+    var query       by remember { mutableStateOf(initialKeyword) }
     val fieldFocus  = remember { FocusRequester() }
+
+    // 从历史快速重搜：预填关键词并立即触发搜索
+    LaunchedEffect(initialKeyword) {
+        if (initialKeyword.isNotBlank()) viewModel.search(initialKeyword)
+    }
 
     // 加入歌单弹窗状态
     var songForPlaylist by remember { mutableStateOf<Song?>(null) }

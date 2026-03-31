@@ -1,5 +1,6 @@
 package com.xiaoxiao0301.amberplay.core.media
 
+import androidx.media3.exoplayer.ExoPlayer
 import com.xiaoxiao0301.amberplay.domain.model.Song
 
 /**
@@ -11,6 +12,9 @@ import com.xiaoxiao0301.amberplay.domain.model.Song
  * service lifecycle, injects this extended interface instead of the concrete class (A-05).
  */
 interface IFullPlayerController : IPlayerController {
+
+    /** The underlying ExoPlayer instance, required by MediaSession. */
+    val player: ExoPlayer
 
     /** Crossfade duration in milliseconds; 0 means disabled. */
     var crossfadeMs: Int

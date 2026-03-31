@@ -77,16 +77,15 @@ class PlaylistRepositoryImpl @Inject constructor(
         }
 
     override suspend fun getPlaylist(id: Int): Playlist? {
-        val entity = playlistDao.getPlaylistById(id) ?: return null
-        val count  = playlistDao.getSongCount(id)
+        val withCount = playlistDao.getPlaylistByIdWithCount(id) ?: return null
         return Playlist(
-            id          = entity.id,
-            name        = entity.name,
-            description = entity.description,
-            coverSongId = entity.coverSongId,
-            songCount   = count,
-            createdAt   = entity.createdAt,
-            updatedAt   = entity.updatedAt,
+            id          = withCount.playlist.id,
+            name        = withCount.playlist.name,
+            description = withCount.playlist.description,
+            coverSongId = withCount.playlist.coverSongId,
+            songCount   = withCount.songCount,
+            createdAt   = withCount.playlist.createdAt,
+            updatedAt   = withCount.playlist.updatedAt,
         )
     }
 
