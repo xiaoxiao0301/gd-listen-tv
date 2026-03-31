@@ -46,6 +46,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -83,6 +84,15 @@ fun SearchScreen(
     // 批量"加入歌单"弹窗
     var batchPlaylistPending by remember { mutableStateOf(false) }
 
+    // 歌手聚合分组模式
+    var groupByArtist   by remember { mutableStateOf(false) }
+    var expandedArtists by remember { mutableStateOf(setOf<String>()) }
+
+    // 新搜索开始时折叠所有分组
+    LaunchedEffect(uiState) {
+        if (uiState is SearchUiState.Loading) expandedArtists = emptySet()
+    }
+
     // 频率限制警告
     LaunchedEffect(Unit) {
         viewModel.rateLimitWarning.collect { waitSec ->
@@ -115,6 +125,23 @@ fun SearchScreen(
                     ),
                 )
                 Spacer(Modifier.width(12.dp))
+                // 歌手分组切换（有结果时显示）
+                if (uiState is SearchUiState.Results) {
+                    Text(
+                        text     = if (groupByArtist) "≡ 列表" else "👤 歌手",
+                        color    = if (groupByArtist) Purple else OnSurfaceVariant,
+                        fontSize = 15.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SurfaceVariant)
+                            .clickable {
+                                groupByArtist = !groupByArtist
+                                expandedArtists = emptySet()
+                            }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
                 Text(
                     text     = if (multiSelect) "✓ 退出" else "☑ 多选",
                     color    = if (multiSelect) Purple else OnSurfaceVariant,
@@ -172,32 +199,85 @@ fun SearchScreen(
                     }
                 }
                 is SearchUiState.Results -> {
-                    LazyColumn(
-                        verticalArrangement  = Arrangement.spacedBy(8.dp),
-                        contentPadding       = PaddingValues(vertical = 4.dp),
-                    ) {
-                        itemsIndexed(state.songs) { index, song ->
-                            SongResultCard(
-                                song            = song,
-                                isFavorite      = song.id in favoriteIds,
-                                isSelected      = song.id in selectedIds,
-                                multiSelect     = multiSelect,
-                                onClick = {
-                                    if (multiSelect) {
-                                        selectedIds = if (song.id in selectedIds)
-                                            selectedIds - song.id else selectedIds + song.id
-                                    } else {
-                                        onSongSelected(song)
+                    if (groupByArtist) {
+                        // ─── 歌手聚合视图 ─────────────────────────────────
+                        val grouped = state.songs.groupBy { it.artists.firstOrNull() ?: it.artistText }
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            contentPadding      = PaddingValues(top = 4.dp, bottom = 80.dp),
+                        ) {
+                            grouped.forEach { (artist, artistSongs) ->
+                                val isExpanded = artist in expandedArtists
+                                item(key = "hdr_$artist") {
+                                    ArtistGroupHeader(
+                                        artistName   = artist,
+                                        songCount    = artistSongs.size,
+                                        isExpanded   = isExpanded,
+                                        onToggle     = {
+                                            expandedArtists = if (isExpanded)
+                                                expandedArtists - artist
+                                            else expandedArtists + artist
+                                        },
+                                        onOpenArtist = { onArtistClick(artistSongs.first().source, artist) },
+                                    )
+                                }
+                                if (isExpanded) {
+                                    items(artistSongs, key = { "song_${it.id}" }) { song ->
+                                        SongResultCard(
+                                            song            = song,
+                                            isFavorite      = song.id in favoriteIds,
+                                            isSelected      = song.id in selectedIds,
+                                            multiSelect     = multiSelect,
+                                            onClick = {
+                                                if (multiSelect) {
+                                                    selectedIds = if (song.id in selectedIds)
+                                                        selectedIds - song.id else selectedIds + song.id
+                                                } else {
+                                                    onSongSelected(song)
+                                                }
+                                            },
+                                            onFavorite      = { viewModel.toggleFavorite(song) },
+                                            onPlayNext      = { viewModel.playNext(song) },
+                                            onAddToPlaylist = { songForPlaylist = song },
+                                            onAlbumClick    = { onAlbumClick(song.source, song.album) },
+                                            onArtistClick   = { onArtistClick(song.source, song.artistText) },
+                                        )
                                     }
-                                },
-                                onFavorite      = { viewModel.toggleFavorite(song) },
-                                onPlayNext      = { viewModel.playNext(song) },
-                                onAddToPlaylist = { songForPlaylist = song },
-                                onAlbumClick    = { onAlbumClick(song.source, song.album) },
-                                onArtistClick   = { onArtistClick(song.source, song.artistText) },
-                            )
-                            if (index == state.songs.lastIndex && state.hasMore) {
-                                LaunchedEffect(state.page) { viewModel.loadNextPage() }
+                                }
+                            }
+                            if (state.hasMore) {
+                                item { LaunchedEffect(state.page) { viewModel.loadNextPage() } }
+                            }
+                        }
+                    } else {
+                        // ─── 平铺列表视图 ─────────────────────────────────
+                        LazyColumn(
+                            verticalArrangement  = Arrangement.spacedBy(8.dp),
+                            contentPadding       = PaddingValues(top = 4.dp, bottom = 80.dp),
+                        ) {
+                            itemsIndexed(state.songs) { index, song ->
+                                SongResultCard(
+                                    song            = song,
+                                    isFavorite      = song.id in favoriteIds,
+                                    isSelected      = song.id in selectedIds,
+                                    multiSelect     = multiSelect,
+                                    onClick = {
+                                        if (multiSelect) {
+                                            selectedIds = if (song.id in selectedIds)
+                                                selectedIds - song.id else selectedIds + song.id
+                                        } else {
+                                            onSongSelected(song)
+                                        }
+                                    },
+                                    onFavorite      = { viewModel.toggleFavorite(song) },
+                                    onPlayNext      = { viewModel.playNext(song) },
+                                    onAddToPlaylist = { songForPlaylist = song },
+                                    onAlbumClick    = { onAlbumClick(song.source, song.album) },
+                                    onArtistClick   = { onArtistClick(song.source, song.artistText) },
+                                )
+                                if (index == state.songs.lastIndex && state.hasMore) {
+                                    LaunchedEffect(state.page) { viewModel.loadNextPage() }
+                                }
                             }
                         }
                     }
@@ -452,6 +532,60 @@ private fun SongResultCard(
                 .clip(RoundedCornerShape(4.dp))
                 .background(Color(0x337C5CBF))
                 .padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun ArtistGroupHeader(
+    artistName: String,
+    songCount: Int,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    onOpenArtist: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (focused) Purple.copy(alpha = 0.15f) else SurfaceVariant)
+            .clickable(onClick = onToggle)
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text     = if (isExpanded) "▼" else "▶",
+            fontSize = 14.sp,
+            color    = Purple,
+            modifier = Modifier.width(24.dp),
+        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                text       = artistName,
+                fontSize   = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color      = MaterialTheme.colorScheme.onSurface,
+                maxLines   = 1,
+                overflow   = TextOverflow.Ellipsis,
+            )
+            Text(
+                text     = "$songCount 首",
+                fontSize = 13.sp,
+                color    = OnSurfaceVariant,
+            )
+        }
+        Text(
+            text     = "歌手页 ▶",
+            fontSize = 13.sp,
+            color    = Purple,
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(Purple.copy(alpha = 0.12f))
+                .clickable(onClick = onOpenArtist)
+                .padding(horizontal = 10.dp, vertical = 4.dp),
         )
     }
 }

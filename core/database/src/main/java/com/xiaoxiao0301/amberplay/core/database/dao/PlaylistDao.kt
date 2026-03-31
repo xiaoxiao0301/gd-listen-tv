@@ -52,6 +52,27 @@ interface PlaylistDao {
     @Query("DELETE FROM playlist_songs WHERE playlist_id=:playlistId AND song_id=:songId")
     suspend fun removeSongFromPlaylist(playlistId: Int, songId: String)
 
+    @Transaction
+    suspend fun batchRemoveSongsFromPlaylist(playlistId: Int, songIds: Collection<String>) {
+        if (songIds.isEmpty()) return
+        deleteSongsBatch(playlistId, songIds)
+        compactPositions(playlistId)
+    }
+
+    @Query("DELETE FROM playlist_songs WHERE playlist_id=:playlistId AND song_id IN (:songIds)")
+    suspend fun deleteSongsBatch(playlistId: Int, songIds: Collection<String>)
+
+    /** 删除后将剩余行的 position 重新连续编号，消除空洞，确保 reorderSong 仍正确工作。 */
+    @Query("""
+        UPDATE playlist_songs
+        SET position = (
+            SELECT COUNT(*) FROM playlist_songs AS ps2
+            WHERE ps2.playlist_id = :playlistId AND ps2.position < playlist_songs.position
+        )
+        WHERE playlist_id = :playlistId
+    """)
+    suspend fun compactPositions(playlistId: Int)
+
     @Query("SELECT MAX(position) FROM playlist_songs WHERE playlist_id=:playlistId")
     suspend fun getMaxPosition(playlistId: Int): Int?
 

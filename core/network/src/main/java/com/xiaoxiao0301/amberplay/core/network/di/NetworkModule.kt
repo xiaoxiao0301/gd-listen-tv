@@ -15,9 +15,6 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import timber.log.Timber
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -28,38 +25,29 @@ object NetworkModule {
     private val BASE_URL get() = BuildConfig.MUSIC_API_BASE_URL
 
     /**
-     * SEC-03/SEC-04: Certificate pinning for music-api.gdstudio.xyz.
-     * Pins are sourced from BuildConfig (CERT_PIN_LEAF / CERT_PIN_BACKUP_CA) so they can be
-     * updated in one place (build.gradle.kts) without touching runtime code.
+     * SEC-03: Certificate pinning for music-api.gdstudio.xyz.
      *
-     * CERT_PIN_LEAF_EXPIRY contains the approximate leaf-cert expiry date.  At runtime the app
-     * logs a warning when fewer than 30 days remain, reminding the developer to rotate the pin.
+     * We pin the **intermediate CA** (not the leaf certificate) so that no app update is needed
+     * when music-api.gdstudio.xyz rotates its leaf cert.
      *
-     * To refresh pins after cert rotation run:
-     *   openssl s_client -connect music-api.gdstudio.xyz:443 -servername music-api.gdstudio.xyz 2>/dev/null \
-     *     | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der 2>/dev/null \
-     *     | openssl dgst -sha256 -binary | base64
+     * The CA pin is stored in BuildConfig.CERT_PIN_CA (build.gradle.kts) and changes only when
+     * the CA itself is replaced — typically on a multi-year timescale.
+     *
+     * To verify the current CA pin:
+     *   openssl s_client -connect music-api.gdstudio.xyz:443 -servername music-api.gdstudio.xyz \
+     *     -showcerts 2>/dev/null | awk '/-----BEGIN CERTIFICATE-----/{n++} n==2{print}' | \
+     *     openssl x509 -pubkey -noout | openssl pkey -pubin -outform der 2>/dev/null | \
+     *     openssl dgst -sha256 -binary | base64
+     *
+     * Future self-hosted deployment: replace CERT_PIN_CA with the pin of your own private root CA.
+     * Rotate certs freely without ever updating this value.
      */
     private val certificatePinner = CertificatePinner.Builder()
-        .add("music-api.gdstudio.xyz", BuildConfig.CERT_PIN_LEAF)
-        .add("music-api.gdstudio.xyz", BuildConfig.CERT_PIN_BACKUP_CA)
+        .add("music-api.gdstudio.xyz", BuildConfig.CERT_PIN_CA)
         .build()
-
-    /** Log a warning if the leaf certificate is close to expiry (SEC-04). */
-    private fun checkCertPinExpiry() {
-        runCatching {
-            val sdf      = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            val expiry   = sdf.parse(BuildConfig.CERT_PIN_LEAF_EXPIRY) ?: return
-            val daysLeft = ((expiry.time - Date().time) / 86_400_000L).toInt()
-            if (daysLeft <= 30) {
-                Timber.w("SEC-04: Certificate pin leaf expires in $daysLeft day(s)! Update CERT_PIN_LEAF in build.gradle.kts.")
-            }
-        }
-    }
 
     @Provides @Singleton
     fun provideOkHttpClient(rateLimiter: RateLimiter): OkHttpClient {
-        checkCertPinExpiry()
         return OkHttpClient.Builder()
             .certificatePinner(certificatePinner)
             .addInterceptor { chain ->

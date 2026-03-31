@@ -38,6 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.xiaoxiao0301.amberplay.core.common.theme.OnSurfaceVariant
+import com.xiaoxiao0301.amberplay.core.common.ui.TvFocusCard
 import com.xiaoxiao0301.amberplay.core.common.ui.picUrl
 import com.xiaoxiao0301.amberplay.core.common.theme.Purple
 import com.xiaoxiao0301.amberplay.core.common.theme.Surface
@@ -65,15 +66,17 @@ fun AlbumDetailScreen(
             modifier          = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text     = "◀",
-                fontSize = 20.sp,
-                color    = Purple,
-                modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .focusable()
-                    .padding(end = 16.dp, top = 4.dp, bottom = 4.dp),
-            )
+            TvFocusCard(
+                onClick  = onBack,
+                modifier = Modifier.padding(end = 16.dp, top = 4.dp, bottom = 4.dp),
+            ) {
+                Text(
+                    text     = "◀",
+                    fontSize = 20.sp,
+                    color    = Purple,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
             Text(
                 text       = albumName,
                 fontSize   = 26.sp,

@@ -78,6 +78,9 @@ dependencies {
     // Timber
     implementation(libs.timber)
 
+    // Splash screen
+    implementation(libs.androidx.splashscreen)
+
     // Project modules
     implementation(project(":core:common"))
     implementation(project(":core:network"))

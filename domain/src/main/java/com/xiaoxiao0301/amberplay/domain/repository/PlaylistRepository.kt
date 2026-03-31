@@ -12,6 +12,7 @@ interface PlaylistRepository {
     suspend fun deletePlaylist(id: Int)
     suspend fun addSongsToPlaylist(playlistId: Int, songs: List<Song>)
     suspend fun removeSongFromPlaylist(playlistId: Int, songId: String)
+    suspend fun batchRemoveSongsFromPlaylist(playlistId: Int, songIds: Collection<String>)
     suspend fun reorderSong(playlistId: Int, fromPos: Int, toPos: Int)
     suspend fun exportPlaylists(): String
     /** 导入歌单。[jsonContent] 为已读取的 JSON 字符串，文件读取应在调用方完成 */

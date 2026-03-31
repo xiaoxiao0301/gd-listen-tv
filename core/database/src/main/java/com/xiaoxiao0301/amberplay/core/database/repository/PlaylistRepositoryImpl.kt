@@ -123,6 +123,11 @@ class PlaylistRepositoryImpl @Inject constructor(
         playlistDao.removeSongFromPlaylist(playlistId, songId)
     }
 
+    override suspend fun batchRemoveSongsFromPlaylist(playlistId: Int, songIds: Collection<String>) {
+        if (songIds.isEmpty()) return
+        playlistDao.batchRemoveSongsFromPlaylist(playlistId, songIds)
+    }
+
     override suspend fun reorderSong(playlistId: Int, fromPos: Int, toPos: Int) {
         playlistDao.reorderSong(playlistId, fromPos, toPos)
     }

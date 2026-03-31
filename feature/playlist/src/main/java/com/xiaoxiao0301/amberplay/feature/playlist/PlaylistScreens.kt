@@ -243,6 +243,13 @@ fun PlaylistDetailScreen(
     var multiSelect  by remember { mutableStateOf(false) }
     var selectedIds  by remember { mutableStateOf(setOf<String>()) }
 
+    LaunchedEffect(Unit) {
+        viewModel.batchRemoveComplete.collect {
+            selectedIds = emptySet()
+            multiSelect = false
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
@@ -338,8 +345,6 @@ fun PlaylistDetailScreen(
                     .background(Color.Red.copy(alpha = 0.1f))
                     .clickable {
                         viewModel.batchRemove(selectedIds)
-                        selectedIds = emptySet()
-                        multiSelect = false
                     }
                     .padding(horizontal = 14.dp, vertical = 6.dp),
             )

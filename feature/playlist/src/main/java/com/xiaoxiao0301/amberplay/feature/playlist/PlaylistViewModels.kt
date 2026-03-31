@@ -11,9 +11,12 @@ import com.xiaoxiao0301.amberplay.domain.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -127,11 +130,15 @@ class PlaylistDetailViewModel @Inject constructor(
         viewModelScope.launch { playlistRepo.removeSongFromPlaylist(pid, songId) }
     }
 
+    private val _batchRemoveComplete = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val batchRemoveComplete: SharedFlow<Unit> = _batchRemoveComplete.asSharedFlow()
+
     fun batchRemove(songIds: Set<String>) {
         val pid = _playlistId.value
         if (pid == 0 || songIds.isEmpty()) return
         viewModelScope.launch {
-            songIds.forEach { playlistRepo.removeSongFromPlaylist(pid, it) }
+            playlistRepo.batchRemoveSongsFromPlaylist(pid, songIds)
+            _batchRemoveComplete.emit(Unit)
         }
     }
 

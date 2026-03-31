@@ -92,8 +92,8 @@ class HistoryRepositoryImpl @Inject constructor(
     }
 
     override fun getTotalPlayCount(): Flow<Long> =
-        statsDao.getTotalPlayCount().map { it ?: 0L }
+        statsDao.getTotalPlayCount()
 
     override fun getTotalPlayDurationMs(): Flow<Long> =
-        statsDao.getTotalPlayDurationMs().map { it ?: 0L }
+        statsDao.getTotalPlayDurationMs()
 }

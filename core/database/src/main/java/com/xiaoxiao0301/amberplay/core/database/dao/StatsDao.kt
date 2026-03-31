@@ -28,9 +28,9 @@ interface StatsDao {
     @Query("SELECT * FROM play_stats ORDER BY play_count DESC LIMIT :limit")
     fun getTopStats(limit: Int): Flow<List<PlayStatEntity>>
 
-    @Query("SELECT SUM(play_count) FROM play_stats")
-    fun getTotalPlayCount(): Flow<Long?>
+    @Query("SELECT COALESCE(SUM(play_count), 0) FROM play_stats")
+    fun getTotalPlayCount(): Flow<Long>
 
-    @Query("SELECT SUM(total_ms) FROM play_stats")
-    fun getTotalPlayDurationMs(): Flow<Long?>
+    @Query("SELECT COALESCE(SUM(total_ms), 0) FROM play_stats")
+    fun getTotalPlayDurationMs(): Flow<Long>
 }

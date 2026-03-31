@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AmberPlay TV launcher banner (320×180 dp).
+  Layout:
+    - Deep dark background (#0F0F14)
+    - Purple accent bar on left edge
+    - Eighth note icon (0.6× scale, centred at ~70,90)
+    - Three concentric amber sound-wave arcs to the right of the note
+    - Thin amber accent line along the bottom
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <!-- Background -->
+    <path
+        android:fillColor="#0F0F14"
+        android:pathData="M0,0 L320,0 L320,180 L0,180 Z" />
+
+    <!-- Left purple accent bar -->
+    <path
+        android:fillColor="#7C5CBF"
+        android:pathData="M0,0 L6,0 L6,180 L0,180 Z" />
+
+    <!--
+      Eighth note scaled 0.6×, centred near (70, 90).
+      Transform: point (x,y) → (x×0.6 + 45,  y×0.6 + 47)
+      Original centre (42, 72) → (70.2, 90.2) ≈ (70, 90) ✓
+    -->
+    <group
+        android:pivotX="0"
+        android:pivotY="0"
+        android:scaleX="0.6"
+        android:scaleY="0.6"
+        android:translateX="45"
+        android:translateY="47">
+
+        <!-- Note head -->
+        <path
+            android:fillColor="#7C5CBF"
+            android:pathData="M26,72 C24,58 40,52 56,58 C68,64 68,80 56,87 C44,94 28,86 26,72 Z" />
+
+        <!-- Stem -->
+        <path
+            android:fillColor="#7C5CBF"
+            android:pathData="M57,22 L62,22 L62,76 L57,76 Z" />
+
+        <!-- Flag in amber -->
+        <path
+            android:fillColor="#FFAB40"
+            android:pathData="M62,22 C90,26 90,54 62,58 L62,50 C84,46 84,28 62,28 Z" />
+
+    </group>
+
+    <!-- Sound-wave arcs — amber, emanating right from the note -->
+
+    <!-- Arc 1 (r=20, closest, full opacity) -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M110,70 C121,70 130,79 130,90 C130,101 121,110 110,110"
+        android:strokeColor="#FFAB40"
+        android:strokeLineCap="round"
+        android:strokeWidth="3.5" />
+
+    <!-- Arc 2 (r=36, medium, 80% opacity) -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M110,54 C130,54 146,70 146,90 C146,110 130,126 110,126"
+        android:strokeAlpha="0.8"
+        android:strokeColor="#FFAB40"
+        android:strokeLineCap="round"
+        android:strokeWidth="3.5" />
+
+    <!-- Arc 3 (r=52, widest, 55% opacity) -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M110,38 C139,38 162,62 162,90 C162,118 139,142 110,142"
+        android:strokeAlpha="0.55"
+        android:strokeColor="#FFAB40"
+        android:strokeLineCap="round"
+        android:strokeWidth="3.5" />
+
+    <!-- Bottom amber accent line -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M0,176 L320,176"
+        android:strokeAlpha="0.45"
+        android:strokeColor="#FFAB40"
+        android:strokeWidth="2" />
+
+</vector>

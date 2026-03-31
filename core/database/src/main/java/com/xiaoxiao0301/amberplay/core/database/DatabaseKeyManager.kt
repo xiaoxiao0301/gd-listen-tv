@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import java.security.GeneralSecurityException
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -14,14 +15,30 @@ import javax.crypto.spec.GCMParameterSpec
 /**
  * Generates and persists the SQLCipher passphrase using Android Keystore.
  *
- * Strategy:
- *  - An AES-256-GCM key is generated (once) in the Android Keystore under the
- *    alias [KEYSTORE_ALIAS].  The raw key material never leaves the Keystore.
- *  - On first launch a random 32-byte passphrase is encrypted with that key
- *    (AES/GCM/NoPadding) and the resulting ciphertext + IV are Base64-stored in
- *    a private SharedPreferences file.
- *  - On every subsequent launch the ciphertext is decrypted to recover the same
- *    passphrase, which is then passed to SQLCipher's SupportFactory.
+ * Normal flow:
+ *  1. An AES-256-GCM key is generated once in the Android Keystore (alias
+ *     [KEYSTORE_ALIAS]).  Raw key material never leaves the Keystore.
+ *  2. On first launch a random 32-byte passphrase is encrypted with that key
+ *     (AES/GCM/NoPadding), and the resulting ciphertext + IV are saved
+ *     Base64-encoded in a private SharedPreferences file.
+ *  3. On every subsequent launch the ciphertext is decrypted to recover the
+ *     same passphrase, which is then passed to SQLCipher's SupportFactory.
+ *
+ * Factory-reset / Keystore-wipe recovery:
+ *  Android Keystore keys are destroyed on factory reset (and on some devices
+ *  after a failed lock-screen PIN attempt limit). When that happens the stored
+ *  ciphertext can no longer be decrypted, so [getOrCreatePassphrase] catches
+ *  the resulting [GeneralSecurityException], clears the stale SharedPreferences
+ *  entry, and generates a brand-new passphrase.
+ *
+ *  After recovery [lastWasRecoveredFromKeystoreFailure] is set to `true`.
+ *  [DatabaseModule] reads this flag and deletes the now-unreadable database
+ *  file before giving Room a fresh start — avoiding a crash at first query.
+ *
+ *  Consequence for the user: all locally stored music data (playlists, history,
+ *  favorites, queue, statistics) is lost after a factory reset.  This is
+ *  intentional for a "data stays on device" app and should be stated in the
+ *  user-facing documentation.
  *
  * The caller is responsible for zeroing the returned array after use.
  */
@@ -37,21 +54,45 @@ internal object DatabaseKeyManager {
     private const val PASS_BYTES         = 32
     private const val GCM_TAG_BITS       = 128
 
+    /**
+     * `true` when the most recent [getOrCreatePassphrase] call had to
+     * regenerate the passphrase because the Keystore key was gone (e.g. after
+     * a factory reset).  Reset to `false` at the start of each call.
+     *
+     * [DatabaseModule] uses this flag to delete the old, now-unreadable
+     * database file before constructing a new Room instance.
+     */
+    @Volatile
+    var lastWasRecoveredFromKeystoreFailure: Boolean = false
+        private set
+
     fun getOrCreatePassphrase(context: Context): ByteArray {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val encPassB64 = prefs.getString(KEY_ENCRYPTED_PASS, null)
-        val ivB64      = prefs.getString(KEY_IV, null)
+        lastWasRecoveredFromKeystoreFailure = false
+
+        val prefs       = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val encPassB64  = prefs.getString(KEY_ENCRYPTED_PASS, null)
+        val ivB64       = prefs.getString(KEY_IV, null)
         val keystoreKey = getOrCreateKeystoreKey()
 
         if (encPassB64 != null && ivB64 != null) {
-            val encPass = Base64.decode(encPassB64, Base64.DEFAULT)
-            val iv      = Base64.decode(ivB64, Base64.DEFAULT)
-            val cipher  = Cipher.getInstance(AES_GCM)
-            cipher.init(Cipher.DECRYPT_MODE, keystoreKey, GCMParameterSpec(GCM_TAG_BITS, iv))
-            return cipher.doFinal(encPass)
+            try {
+                val encPass = Base64.decode(encPassB64, Base64.DEFAULT)
+                val iv      = Base64.decode(ivB64, Base64.DEFAULT)
+                val cipher  = Cipher.getInstance(AES_GCM)
+                cipher.init(Cipher.DECRYPT_MODE, keystoreKey, GCMParameterSpec(GCM_TAG_BITS, iv))
+                return cipher.doFinal(encPass)
+            } catch (e: GeneralSecurityException) {
+                // The Keystore key was re-created (factory reset / key eviction).
+                // The stored ciphertext is permanently unreadable — clear it so a
+                // fresh passphrase is generated below.  DatabaseModule will delete
+                // the stale database file when it sees lastWasRecoveredFromKeystoreFailure.
+                lastWasRecoveredFromKeystoreFailure = true
+                prefs.edit().remove(KEY_ENCRYPTED_PASS).remove(KEY_IV).apply()
+            }
         }
 
-        // First launch: generate a random passphrase, encrypt and persist it.
+        // First launch OR post-recovery: generate a new random passphrase,
+        // encrypt it with the (new) Keystore key, and persist it.
         val passphrase = ByteArray(PASS_BYTES)
         SecureRandom().nextBytes(passphrase)
         val cipher  = Cipher.getInstance(AES_GCM)

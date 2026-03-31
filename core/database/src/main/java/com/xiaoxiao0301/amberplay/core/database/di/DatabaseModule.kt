@@ -27,6 +27,18 @@ object DatabaseModule {
     @Provides @Singleton
     fun provideDatabase(@ApplicationContext ctx: Context): AppDatabase {
         val passphrase = DatabaseKeyManager.getOrCreatePassphrase(ctx)
+
+        // Factory-reset recovery: if the Android Keystore key was destroyed (e.g. factory
+        // reset, lock-screen key eviction), DatabaseKeyManager generated a brand-new
+        // passphrase and set this flag.  The existing database file is encrypted with the
+        // old, now-irrecoverable passphrase — attempting to open it would crash.
+        // We delete it here so Room can create a fresh, empty database with the new key.
+        // All user data is unavoidably lost after a factory reset; this ensures the app
+        // at least starts cleanly rather than crashing on every subsequent launch.
+        if (DatabaseKeyManager.lastWasRecoveredFromKeystoreFailure) {
+            ctx.getDatabasePath("amber.db").delete()
+        }
+
         val factory = SupportFactory(passphrase)
         passphrase.fill(0) // zero out passphrase bytes immediately after handing to SupportFactory
         return Room.databaseBuilder(ctx, AppDatabase::class.java, "amber.db")

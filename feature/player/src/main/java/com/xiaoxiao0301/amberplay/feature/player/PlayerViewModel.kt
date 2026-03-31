@@ -34,7 +34,7 @@ import javax.inject.Inject
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    val playerController: IFullPlayerController,
+    private val playerController: IFullPlayerController,
     private val getSongUrl:     GetSongUrlUseCase,
     private val queueRepo:      QueueRepository,
     private val settingsDs:     SettingsDataStore,
