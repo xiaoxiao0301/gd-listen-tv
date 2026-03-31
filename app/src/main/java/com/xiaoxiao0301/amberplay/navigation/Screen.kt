@@ -26,4 +26,12 @@ sealed class Screen(val route: String) {
                 "album_detail/${source}/${albumId}"
         }
     }
+
+    data class ArtistDetail(val dummy: Unit = Unit) : Screen("artist_detail/{source}/{artistName}") {
+        companion object {
+            const val ROUTE = "artist_detail/{source}/{artistName}"
+            fun createRoute(source: String, artistName: String) =
+                "artist_detail/${source}/${artistName}"
+        }
+    }
 }

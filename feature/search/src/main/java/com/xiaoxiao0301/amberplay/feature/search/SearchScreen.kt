@@ -63,6 +63,7 @@ import com.xiaoxiao0301.amberplay.domain.model.Song
 fun SearchScreen(
     onSongSelected: (Song) -> Unit = {},
     onAlbumClick: (source: String, albumId: String) -> Unit = { _, _ -> },
+    onArtistClick: (source: String, artistName: String) -> Unit = { _, _ -> },
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val uiState     by viewModel.uiState.collectAsStateWithLifecycle()
@@ -193,6 +194,7 @@ fun SearchScreen(
                                 onPlayNext      = { viewModel.playNext(song) },
                                 onAddToPlaylist = { songForPlaylist = song },
                                 onAlbumClick    = { onAlbumClick(song.source, song.album) },
+                                onArtistClick   = { onArtistClick(song.source, song.artistText) },
                             )
                             if (index == state.songs.lastIndex && state.hasMore) {
                                 LaunchedEffect(state.page) { viewModel.loadNextPage() }
@@ -324,6 +326,7 @@ private fun SongResultCard(
     onPlayNext: () -> Unit,
     onAddToPlaylist: () -> Unit,
     onAlbumClick: (() -> Unit)? = null,
+    onArtistClick: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
 
@@ -422,6 +425,17 @@ private fun SongResultCard(
                     fontSize = 18.sp,
                     modifier = Modifier
                         .clickable(onClick = onAlbumClick)
+                        .padding(8.dp),
+                )
+            }
+
+            // 浏览歌手
+            if (onArtistClick != null) {
+                Text(
+                    text     = "🎤",
+                    fontSize = 18.sp,
+                    modifier = Modifier
+                        .clickable(onClick = onArtistClick)
                         .padding(8.dp),
                 )
             }

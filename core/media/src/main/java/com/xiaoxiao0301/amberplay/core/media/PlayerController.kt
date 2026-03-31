@@ -23,7 +23,7 @@ import javax.inject.Singleton
 @Singleton
 class PlayerController @Inject constructor(
     @ApplicationContext private val context: Context,
-) : IPlayerController {
+) : IFullPlayerController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     val player: ExoPlayer by lazy {
@@ -43,14 +43,14 @@ class PlayerController @Inject constructor(
     override val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
     /** Crossfade duration set by the ViewModel from DataStore. 0 = disabled. */
-    var crossfadeMs: Int = 0
+    override var crossfadeMs: Int = 0
 
     /**
      * 队列导航回调，由 PlayerViewModel.init 注册。
      * PlayerController 本身不持有队列状态，所有上/下/跳转逻辑委托给 PlayerViewModel。
      */
-    var onSkipToIndex:   ((Int) -> Unit)? = null
-    var onPlaybackEnded: (() -> Unit)?    = null
+    override var onSkipToIndex:   ((Int) -> Unit)? = null
+    override var onPlaybackEnded: (() -> Unit)?    = null
 
     private val sleepTimer = SleepTimer()
     private var positionJob: Job? = null
@@ -58,12 +58,13 @@ class PlayerController @Inject constructor(
 
     // ─── 公开控制方法 ────────────────────────────────────────────
 
-    fun playSong(song: Song, url: String) {
+    override fun playSong(song: Song, url: String) {
         // SEC-01: Only allow http/https/file schemes to prevent ExoPlayer reading arbitrary URIs
         require(url.startsWith("https://") || url.startsWith("http://") || url.startsWith("file://")) {
             "Invalid playback URL scheme: ${url.substringBefore("://")}"
         }
         crossfadeJob?.cancel()
+        player.volume = 1.0f   // reset if a previous crossfade was interrupted mid-fade
         val fadeDuration = crossfadeMs
         if (fadeDuration > 0 && player.isPlaying) {
             crossfadeJob = scope.launch {
@@ -97,7 +98,7 @@ class PlayerController @Inject constructor(
         }
     }
 
-    fun playOrPause() {
+    override fun playOrPause() {
         if (player.isPlaying) player.pause() else player.play()
     }
 
@@ -115,16 +116,16 @@ class PlayerController @Inject constructor(
     override fun skipToIndex(index: Int) { onSkipToIndex?.invoke(index) }
 
     /** 由 PlayerViewModel 在 playSong() / navigateToIndex() 时调用，同步队列位置到 PlaybackState */
-    fun updateQueueContext(index: Int, size: Int) {
+    override fun updateQueueContext(index: Int, size: Int) {
         _state.value = _state.value.copy(currentIndex = index, queueSize = size)
     }
 
-    fun setSpeed(speed: Float) {
+    override fun setSpeed(speed: Float) {
         player.setPlaybackSpeed(speed.coerceIn(0.5f, 2.0f))
         _state.value = _state.value.copy(speed = speed)
     }
 
-    fun setPlayMode(mode: PlayMode) {
+    override fun setPlayMode(mode: PlayMode) {
         when (mode) {
             PlayMode.SEQUENTIAL -> {
                 player.repeatMode = Player.REPEAT_MODE_OFF
@@ -146,13 +147,13 @@ class PlayerController @Inject constructor(
         _state.value = _state.value.copy(playMode = mode)
     }
 
-    fun setSleepTimer(minutes: Int) {
+    override fun setSleepTimer(minutes: Int) {
         sleepTimer.set(minutes, scope) { player.pause() }
     }
 
-    fun cancelSleepTimer() = sleepTimer.cancel()
+    override fun cancelSleepTimer() = sleepTimer.cancel()
 
-    fun release() {
+    override fun release() {
         positionJob?.cancel()
         crossfadeJob?.cancel()
         sleepTimer.cancel()

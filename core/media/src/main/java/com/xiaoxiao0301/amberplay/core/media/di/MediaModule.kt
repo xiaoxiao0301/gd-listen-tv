@@ -1,5 +1,6 @@
 package com.xiaoxiao0301.amberplay.core.media.di
 
+import com.xiaoxiao0301.amberplay.core.media.IFullPlayerController
 import com.xiaoxiao0301.amberplay.core.media.IPlayerController
 import com.xiaoxiao0301.amberplay.core.media.PlayerController
 import dagger.Binds
@@ -15,4 +16,8 @@ abstract class MediaModule {
     @Binds
     @Singleton
     abstract fun bindPlayerController(impl: PlayerController): IPlayerController
+
+    @Binds
+    @Singleton
+    abstract fun bindFullPlayerController(impl: PlayerController): IFullPlayerController
 }

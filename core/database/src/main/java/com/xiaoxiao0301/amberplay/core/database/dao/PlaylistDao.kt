@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.xiaoxiao0301.amberplay.core.database.entity.PlaylistEntity
 import com.xiaoxiao0301.amberplay.core.database.entity.PlaylistSongCrossRef
+import com.xiaoxiao0301.amberplay.core.database.entity.PlaylistWithCount
 import com.xiaoxiao0301.amberplay.core.database.entity.SongEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -15,6 +16,15 @@ interface PlaylistDao {
 
     @Query("SELECT * FROM playlists ORDER BY updated_at DESC")
     fun getAllPlaylists(): Flow<List<PlaylistEntity>>
+
+    @Query("""
+        SELECT p.*, COUNT(ps.song_id) AS song_count
+        FROM playlists p
+        LEFT JOIN playlist_songs ps ON p.id = ps.playlist_id
+        GROUP BY p.id
+        ORDER BY p.updated_at DESC
+    """)
+    fun getAllPlaylistsWithCount(): Flow<List<PlaylistWithCount>>
 
     @Query("SELECT * FROM playlists WHERE id = :id")
     suspend fun getPlaylistById(id: Int): PlaylistEntity?

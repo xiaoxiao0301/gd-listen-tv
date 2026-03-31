@@ -54,7 +54,10 @@ class QueueRepositoryImpl @Inject constructor(
         queueDao.clearQueue()
     }
 
-    override suspend fun getQueueSnapshot(): List<Song> =
-        queueDao.getAllItems()
-            .mapNotNull { item -> songDao.getById(item.songId)?.toDomain() }
+    override suspend fun getQueueSnapshot(): List<Song> {
+        val items = queueDao.getAllItems()
+        if (items.isEmpty()) return emptyList()
+        val songMap = songDao.getByIds(items.map { it.songId }).associateBy { it.id }
+        return items.mapNotNull { item -> songMap[item.songId]?.toDomain() }
+    }
 }

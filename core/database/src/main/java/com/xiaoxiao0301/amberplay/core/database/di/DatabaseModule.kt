@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.xiaoxiao0301.amberplay.core.database.AppDatabase
+import com.xiaoxiao0301.amberplay.core.database.DatabaseKeyManager
 import com.xiaoxiao0301.amberplay.core.database.dao.FavoriteDao
 import com.xiaoxiao0301.amberplay.core.database.dao.HistoryDao
 import com.xiaoxiao0301.amberplay.core.database.dao.PlaylistDao
@@ -16,6 +17,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import net.sqlcipher.database.SupportFactory
 import javax.inject.Singleton
 
 @Module
@@ -23,13 +25,18 @@ import javax.inject.Singleton
 object DatabaseModule {
 
     @Provides @Singleton
-    fun provideDatabase(@ApplicationContext ctx: Context): AppDatabase =
-        Room.databaseBuilder(ctx, AppDatabase::class.java, "amber.db")
+    fun provideDatabase(@ApplicationContext ctx: Context): AppDatabase {
+        val passphrase = DatabaseKeyManager.getOrCreatePassphrase(ctx)
+        val factory = SupportFactory(passphrase)
+        passphrase.fill(0) // zero out passphrase bytes immediately after handing to SupportFactory
+        return Room.databaseBuilder(ctx, AppDatabase::class.java, "amber.db")
+            .openHelperFactory(factory)
             // Add explicit migrations here when bumping the DB version.
             // Example: .addMigrations(MIGRATION_1_2)
             // NEVER use fallbackToDestructiveMigration in production —
             // it silently drops all user data on schema change.
             .build()
+    }
 
     // Template for future migrations:
     // val MIGRATION_1_2 = object : Migration(1, 2) {

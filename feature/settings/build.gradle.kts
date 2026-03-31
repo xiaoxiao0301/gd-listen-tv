@@ -23,4 +23,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.hilt.android); implementation(libs.hilt.navigation.compose); ksp(libs.hilt.compiler)
     implementation(libs.androidx.lifecycle.runtime.compose)
+
+    testImplementation(libs.junit5)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
 }

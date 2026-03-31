@@ -7,9 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.xiaoxiao0301.amberplay.core.cache.AudioCache
 import com.xiaoxiao0301.amberplay.core.common.network.NetworkMonitor
 import com.xiaoxiao0301.amberplay.core.datastore.SettingsDataStore
+import com.xiaoxiao0301.amberplay.core.media.IFullPlayerController
 import com.xiaoxiao0301.amberplay.core.media.PlayMode
 import com.xiaoxiao0301.amberplay.core.media.PlaybackState
-import com.xiaoxiao0301.amberplay.core.media.PlayerController
 import com.xiaoxiao0301.amberplay.core.media.PlayerService
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.HistoryRepository
@@ -34,7 +34,7 @@ import javax.inject.Inject
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    val playerController: PlayerController,
+    val playerController: IFullPlayerController,
     private val getSongUrl:     GetSongUrlUseCase,
     private val queueRepo:      QueueRepository,
     private val settingsDs:     SettingsDataStore,

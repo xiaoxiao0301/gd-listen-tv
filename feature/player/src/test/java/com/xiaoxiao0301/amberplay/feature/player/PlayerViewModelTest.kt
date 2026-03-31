@@ -6,8 +6,9 @@ import com.xiaoxiao0301.amberplay.core.cache.AudioCache
 import com.xiaoxiao0301.amberplay.core.common.network.NetworkMonitor
 import com.xiaoxiao0301.amberplay.core.datastore.AppSettings
 import com.xiaoxiao0301.amberplay.core.datastore.SettingsDataStore
+import com.xiaoxiao0301.amberplay.core.media.IFullPlayerController
+import com.xiaoxiao0301.amberplay.core.media.PlayMode
 import com.xiaoxiao0301.amberplay.core.media.PlaybackState
-import com.xiaoxiao0301.amberplay.core.media.PlayerController
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.model.SongUrl
 import com.xiaoxiao0301.amberplay.domain.repository.HistoryRepository
@@ -16,7 +17,9 @@ import com.xiaoxiao0301.amberplay.domain.usecase.GetSongUrlUseCase
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -39,7 +42,7 @@ class PlayerViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
 
     private val context          = mockk<Context>(relaxed = true)
-    private val playerController = mockk<PlayerController>(relaxed = true)
+    private val playerController = mockk<IFullPlayerController>(relaxed = true)
     private val getSongUrl       = mockk<GetSongUrlUseCase>()
     private val queueRepo        = mockk<QueueRepository>(relaxed = true)
     private val settingsDs       = mockk<SettingsDataStore>()
@@ -157,5 +160,85 @@ class PlayerViewModelTest {
             assert(error.contains("播放失败"))
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    // ── Queue navigation tests ────────────────────────────────────────────────
+
+    private fun setupForNavigation(
+        queue: List<Song>,
+        currentIndex: Int,
+        mode: PlayMode = PlayMode.REPEAT_ALL,
+    ): CompletableDeferred<Song> {
+        val playSignal = CompletableDeferred<Song>()
+        every { audioCache.getFile(any(), any(), any()) } returns null
+        every { networkMonitor.isOnline } returns flowOf(true)
+        coEvery { getSongUrl(any(), any()) } answers { Result.success(SongUrl(url = "https://cdn/song.mp3", bitrate = 320, sizeKb = 0)) }
+        coEvery { queueRepo.getQueueSnapshot() } returns queue
+        every { playerController.state } returns MutableStateFlow(
+            PlaybackState(currentIndex = currentIndex, queueSize = queue.size, playMode = mode)
+        )
+        every { playerController.playSong(any(), any()) } answers {
+            playSignal.complete(firstArg())
+        }
+        return playSignal
+    }
+
+    @Test
+    fun `navigateQueue +1 plays next song in REPEAT_ALL mode`() = runTest {
+        val queue = listOf(song("s0"), song("s1"), song("s2"))
+        val playSignal = setupForNavigation(queue, currentIndex = 0)
+        viewModel = createViewModel()
+        viewModel.skipNext()
+        val playedSong = playSignal.await()
+        assertEquals("s1", playedSong.id)
+    }
+
+    @Test
+    fun `navigateQueue +1 wraps around in REPEAT_ALL mode`() = runTest {
+        val queue = listOf(song("s0"), song("s1"), song("s2"))
+        val playSignal = setupForNavigation(queue, currentIndex = 2, mode = PlayMode.REPEAT_ALL)
+        viewModel = createViewModel()
+        viewModel.skipNext()
+        val playedSong = playSignal.await()
+        assertEquals("s0", playedSong.id)
+    }
+
+    @Test
+    fun `navigateQueue +1 stops at last song in SEQUENTIAL mode`() = runTest {
+        val queue = listOf(song("s0"), song("s1"))
+        every { audioCache.getFile(any(), any(), any()) } returns null
+        every { networkMonitor.isOnline } returns flowOf(true)
+        coEvery { queueRepo.getQueueSnapshot() } returns queue
+        every { playerController.state } returns MutableStateFlow(
+            PlaybackState(currentIndex = 1, queueSize = 2, playMode = PlayMode.SEQUENTIAL)
+        )
+
+        viewModel = createViewModel()
+        viewModel.skipNext() // should be a no-op
+        // playSong must NOT be called since we're at the last track in SEQUENTIAL
+        coVerify(exactly = 0) { playerController.playSong(any(), any()) }
+    }
+
+    @Test
+    fun `onSkipToIndex callback navigates to correct index`() = runTest {
+        val queue = listOf(song("s0"), song("s1"), song("s2"))
+        val callbackSlot = io.mockk.slot<(Int) -> Unit>()
+        every { playerController.onSkipToIndex = capture(callbackSlot) } just runs
+        every { playerController.onPlaybackEnded = any() } just runs
+        every { audioCache.getFile(any(), any(), any()) } returns null
+        every { networkMonitor.isOnline } returns flowOf(true)
+        coEvery { getSongUrl(any(), any()) } returns Result.success(SongUrl(url = "https://cdn/s2.mp3", bitrate = 320, sizeKb = 0))
+        coEvery { queueRepo.getQueueSnapshot() } returns queue
+        every { playerController.state } returns MutableStateFlow(
+            PlaybackState(currentIndex = 0, queueSize = 3, playMode = PlayMode.REPEAT_ALL)
+        )
+        val playSignal = CompletableDeferred<Song>()
+        every { playerController.playSong(any(), any()) } answers { playSignal.complete(firstArg()) }
+
+        viewModel = createViewModel()
+        // The callback gets registered in init{}
+        callbackSlot.captured.invoke(2)
+        val playedSong = playSignal.await()
+        assertEquals("s2", playedSong.id)
     }
 }

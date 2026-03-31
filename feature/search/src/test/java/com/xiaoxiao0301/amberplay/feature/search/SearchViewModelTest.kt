@@ -1,7 +1,7 @@
 package com.xiaoxiao0301.amberplay.feature.search
 
 import app.cash.turbine.test
-import com.xiaoxiao0301.amberplay.core.media.PlayerController
+import com.xiaoxiao0301.amberplay.core.media.IPlayerController
 import com.xiaoxiao0301.amberplay.core.network.ratelimit.RateLimiter
 import com.xiaoxiao0301.amberplay.domain.model.Song
 import com.xiaoxiao0301.amberplay.domain.repository.FavoriteRepository
@@ -13,7 +13,9 @@ import com.xiaoxiao0301.amberplay.domain.usecase.ToggleFavoriteUseCase
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -40,7 +42,7 @@ class SearchViewModelTest {
     private val rateLimiter      = mockk<RateLimiter>(relaxed = true)
     private val playlistRepo     = mockk<PlaylistRepository>()
     private val queueRepo        = mockk<QueueRepository>(relaxed = true)
-    private val playerController = mockk<PlayerController>(relaxed = true)
+    private val playerController = mockk<IPlayerController>(relaxed = true)
 
     private lateinit var viewModel: SearchViewModel
 
@@ -138,5 +140,21 @@ class SearchViewModelTest {
     fun `clearHistory delegates to historyRepo`() = runTest {
         viewModel.clearHistory()
         coVerify { historyRepo.clearSearchHistory() }
+    }
+
+    @Test
+    fun `addBatchToPlaylist delegates batch to playlistRepo`() = runTest {
+        val songs = listOf(song("s1"), song("s2"), song("s3"))
+        coEvery { playlistRepo.addSongsToPlaylist(any(), any()) } just runs
+        viewModel.addBatchToPlaylist(songs, playlistId = 7)
+        coVerify { playlistRepo.addSongsToPlaylist(7, songs) }
+    }
+
+    @Test
+    fun `addSongToPlaylist wraps single song in list`() = runTest {
+        val s = song("s9")
+        coEvery { playlistRepo.addSongsToPlaylist(any(), any()) } just runs
+        viewModel.addSongToPlaylist(s, playlistId = 3)
+        coVerify { playlistRepo.addSongsToPlaylist(3, listOf(s)) }
     }
 }

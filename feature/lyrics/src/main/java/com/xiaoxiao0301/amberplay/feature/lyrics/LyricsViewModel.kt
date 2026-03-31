@@ -31,7 +31,7 @@ sealed class LyricsUiState {
 
 @HiltViewModel
 class LyricsViewModel @Inject constructor(
-    val playerController: IPlayerController,
+    private val playerController: IPlayerController,
     private val getLyric: GetLyricUseCase,
     private val settingsDs: SettingsDataStore,
 ) : ViewModel() {

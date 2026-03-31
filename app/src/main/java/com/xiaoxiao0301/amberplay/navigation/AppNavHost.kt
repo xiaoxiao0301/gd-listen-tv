@@ -17,12 +17,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -49,6 +52,7 @@ import com.xiaoxiao0301.amberplay.feature.playlist.PlaylistDetailScreen
 import com.xiaoxiao0301.amberplay.feature.playlist.PlaylistListScreen
 import com.xiaoxiao0301.amberplay.feature.queue.QueueScreen
 import com.xiaoxiao0301.amberplay.feature.search.AlbumDetailScreen
+import com.xiaoxiao0301.amberplay.feature.search.ArtistDetailScreen
 import com.xiaoxiao0301.amberplay.feature.search.SearchScreen
 import com.xiaoxiao0301.amberplay.feature.settings.SettingsScreen
 import com.xiaoxiao0301.amberplay.feature.stats.StatsScreen
@@ -118,6 +122,14 @@ fun AppNavHost() {
                                     )
                                 )
                             },
+                            onArtistClick = { source, artistName ->
+                                navController.navigate(
+                                    Screen.ArtistDetail.createRoute(
+                                        source,
+                                        Uri.encode(artistName),
+                                    )
+                                )
+                            },
                         )
                     }
                     composable(Screen.Playlists.route) {
@@ -183,6 +195,24 @@ fun AppNavHost() {
                             onBack = { navController.popBackStack() },
                         )
                     }
+                    // ─── 歌手详情 ──────────────────────────────
+                    composable(
+                        route     = Screen.ArtistDetail.ROUTE,
+                        arguments = listOf(
+                            navArgument("source")     { type = NavType.StringType },
+                            navArgument("artistName") { type = NavType.StringType },
+                        ),
+                    ) { back ->
+                        ArtistDetailScreen(
+                            source     = back.arguments?.getString("source") ?: "",
+                            artistName = Uri.decode(back.arguments?.getString("artistName") ?: ""),
+                            onSongSelected = { song ->
+                                playerVm.playSong(song)
+                                navController.navigate(Screen.Player.route)
+                            },
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                 }
             }
 
@@ -218,9 +248,15 @@ fun AppNavHost() {
 @Composable
 private fun SideNavBar(navController: NavController, currentRoute: String?) {
     var expanded by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     Column(
         modifier = Modifier
+            .focusRequester(focusRequester)
             .width(if (expanded) 200.dp else 72.dp)
             .fillMaxHeight()
             .background(Surface)

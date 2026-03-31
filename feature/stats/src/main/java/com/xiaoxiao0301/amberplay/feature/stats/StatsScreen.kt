@@ -2,6 +2,8 @@ package com.xiaoxiao0301.amberplay.feature.stats
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +53,7 @@ fun StatsScreen(
     val topSongs       by viewModel.topSongs.collectAsStateWithLifecycle()
     val totalCount     by viewModel.totalPlayCount.collectAsStateWithLifecycle()
     val totalDurationMs by viewModel.totalPlayDurationMs.collectAsStateWithLifecycle()
+    var selectedStat by remember { mutableStateOf<PlayStat?>(null) }
 
     Column(
         modifier = Modifier
@@ -95,7 +101,16 @@ fun StatsScreen(
             Text("播放次数 Top ${topSongs.size}", fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(12.dp))
-            PlayCountBarChart(topSongs)
+            PlayCountBarChart(
+                stats = topSongs,
+                onStatClick = { stat -> selectedStat = if (selectedStat?.song?.id == stat.song.id) null else stat },
+            )
+
+            // ─── 柱状图点击详情 ────────────────────────────────────
+            selectedStat?.let { stat ->
+                Spacer(Modifier.height(12.dp))
+                SelectedStatDetail(stat = stat)
+            }
 
             Spacer(Modifier.height(28.dp))
 
@@ -129,7 +144,7 @@ private fun StatCard(modifier: Modifier = Modifier, value: String, label: String
 }
 
 @Composable
-private fun PlayCountBarChart(stats: List<PlayStat>) {
+private fun PlayCountBarChart(stats: List<PlayStat>, onStatClick: (PlayStat) -> Unit = {}) {
     val maxCount = stats.maxOfOrNull { it.playCount }?.coerceAtLeast(1) ?: 1
     val barColor  = Purple
     val bgColor   = SurfaceVariant
@@ -145,7 +160,11 @@ private fun PlayCountBarChart(stats: List<PlayStat>) {
             val fraction = stat.playCount.toFloat() / maxCount.toFloat()
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier          = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                modifier          = Modifier
+                    .fillMaxWidth()
+                    .clickable { onStatClick(stat) }
+                    .focusable()
+                    .padding(vertical = 4.dp),
             ) {
                 // 歌名标签（固定宽度）
                 Text(
@@ -187,6 +206,42 @@ private fun PlayCountBarChart(stats: List<PlayStat>) {
                     modifier = Modifier.width(46.dp),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SelectedStatDetail(stat: PlayStat) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Purple.copy(alpha = 0.12f))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AsyncImage(
+            model              = stat.song.picUrl(120),
+            contentDescription = stat.song.name,
+            modifier           = Modifier
+                .size(60.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(SurfaceVariant),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(stat.song.name, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
+            Text(stat.song.artistText, fontSize = 13.sp, color = OnSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(stat.song.album, fontSize = 12.sp, color = OnSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text("${stat.playCount} 次", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Purple)
+            Text(formatDuration(stat.totalMs), fontSize = 12.sp, color = OnSurfaceVariant)
         }
     }
 }
