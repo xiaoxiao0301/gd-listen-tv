@@ -2,7 +2,6 @@ package com.xiaoxiao0301.amberplay.feature.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -296,13 +295,12 @@ private fun <T> RadioGroup(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
                 .clickable { onSelect(option) }
-                .focusable()
                 .padding(horizontal = 4.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             RadioButton(
                 selected  = selected == option,
-                onClick   = { onSelect(option) },
+                onClick   = null,
                 modifier  = Modifier.size(20.dp),
                 colors    = RadioButtonDefaults.colors(selectedColor = Purple),
             )
@@ -324,7 +322,6 @@ private fun SwitchRow(label: String, checked: Boolean, onToggle: (Boolean) -> Un
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .clickable { onToggle(!checked) }
-            .focusable()
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -346,7 +343,6 @@ private fun CheckboxRow(label: String, checked: Boolean, onToggle: () -> Unit) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onToggle)
-            .focusable()
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

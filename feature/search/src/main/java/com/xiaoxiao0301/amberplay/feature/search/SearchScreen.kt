@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,13 +69,14 @@ fun SearchScreen(
     onArtistClick: (source: String, artistName: String) -> Unit = { _, _ -> },
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
-    val uiState     by viewModel.uiState.collectAsStateWithLifecycle()
-    val history     by viewModel.searchHistory.collectAsStateWithLifecycle()
-    val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
-    val playlists   by viewModel.playlists.collectAsStateWithLifecycle()
-    val snackbar    = remember { SnackbarHostState() }
-    var query       by remember { mutableStateOf(initialKeyword) }
-    val fieldFocus  = remember { FocusRequester() }
+    val uiState          by viewModel.uiState.collectAsStateWithLifecycle()
+    val history          by viewModel.searchHistory.collectAsStateWithLifecycle()
+    val favoriteIds      by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val playlists        by viewModel.playlists.collectAsStateWithLifecycle()
+    val snackbar         = remember { SnackbarHostState() }
+    var query            by remember { mutableStateOf(initialKeyword) }
+    val fieldFocus       = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     // 从历史快速重搜：预填关键词并立即触发搜索
     LaunchedEffect(initialKeyword) {
@@ -127,7 +129,10 @@ fun SearchScreen(
                     singleLine    = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(
-                        onSearch = { viewModel.search(query) }
+                        onSearch = {
+                            keyboardController?.hide()
+                            viewModel.search(query)
+                        }
                     ),
                 )
                 Spacer(Modifier.width(12.dp))

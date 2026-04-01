@@ -98,7 +98,6 @@ fun AppNavHost() {
                         HomeScreen(
                             onSongSelected = { song ->
                                 playerVm.playSong(song)
-                                navController.navigate(Screen.Player.route)
                             },
                             onSearchKeyword = { keyword ->
                                 navController.navigate(
@@ -121,7 +120,6 @@ fun AppNavHost() {
                             initialKeyword = initialKeyword,
                             onSongSelected = { song ->
                                 playerVm.playSong(song)
-                                navController.navigate(Screen.Player.route)
                             },
                             onAlbumClick = { source, albumId ->
                                 navController.navigate(
@@ -156,7 +154,6 @@ fun AppNavHost() {
                             playlistId = back.arguments?.getInt("playlistId") ?: 0,
                             onSongSelected = { song ->
                                 playerVm.playSong(song)
-                                navController.navigate(Screen.Player.route)
                             }
                         )
                     }
@@ -164,7 +161,6 @@ fun AppNavHost() {
                         FavoritesScreen(
                             onSongSelected = { song ->
                                 playerVm.playSong(song)
-                                navController.navigate(Screen.Player.route)
                             },
                         )
                     }
@@ -199,7 +195,6 @@ fun AppNavHost() {
                             albumId = back.arguments?.getString("albumId") ?: "",
                             onSongSelected = { song ->
                                 playerVm.playSong(song)
-                                navController.navigate(Screen.Player.route)
                             },
                             onBack = { navController.popBackStack() },
                         )
@@ -217,7 +212,6 @@ fun AppNavHost() {
                             artistName = Uri.decode(back.arguments?.getString("artistName") ?: ""),
                             onSongSelected = { song ->
                                 playerVm.playSong(song)
-                                navController.navigate(Screen.Player.route)
                             },
                             onBack = { navController.popBackStack() },
                         )
@@ -256,28 +250,48 @@ fun AppNavHost() {
 
 @Composable
 private fun SideNavBar(navController: NavController, currentRoute: String?) {
-    var expanded by remember { mutableStateOf(false) }
-    val focusRequester = remember { FocusRequester() }
+    val itemFocusRequesters = remember { NAV_ITEMS.map { FocusRequester() } }
+    var focusedItemIndex by remember { mutableStateOf<Int?>(null) }
+    val expanded = true  // 暂时禁用自动收缩，防止弹出键盘时菜单意外折叠
+    val currentBaseRoute = currentRoute?.substringBefore("?")
+    val selectedIndex = remember(currentRoute) {
+        NAV_ITEMS.indexOfFirst { it.route == currentBaseRoute }
+    }
 
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+        if (selectedIndex >= 0) {
+            itemFocusRequesters[selectedIndex].requestFocus()
+        }
+    }
+
+    LaunchedEffect(focusedItemIndex, currentBaseRoute) {
+        val index = focusedItemIndex ?: return@LaunchedEffect
+        val targetRoute = NAV_ITEMS[index].route
+        if (currentBaseRoute != targetRoute) {
+            navController.navigate(targetRoute) {
+                launchSingleTop = true
+                restoreState    = true
+                popUpTo(navController.graph.startDestinationId) { saveState = true }
+            }
+        }
     }
 
     Column(
         modifier = Modifier
-            .focusRequester(focusRequester)
             .width(if (expanded) 200.dp else 72.dp)
             .fillMaxHeight()
             .background(Surface)
-            .onFocusChanged { expanded = it.hasFocus }
-            .focusable()
     ) {
-        NAV_ITEMS.forEach { item ->
-            val selected = currentRoute?.substringBefore("?") == item.route
+        NAV_ITEMS.forEachIndexed { index, item ->
+            val selected = currentBaseRoute == item.route
             var focused by remember { mutableStateOf(false) }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .then(
+                        if (index < itemFocusRequesters.size) Modifier.focusRequester(itemFocusRequesters[index])
+                        else Modifier
+                    )
                     .background(
                         when {
                             selected -> Purple.copy(alpha = 0.2f)
@@ -285,7 +299,14 @@ private fun SideNavBar(navController: NavController, currentRoute: String?) {
                             else     -> Color.Transparent
                         }
                     )
-                    .onFocusChanged { focused = it.isFocused }
+                    .onFocusChanged {
+                        focused = it.isFocused
+                        if (it.isFocused) {
+                            focusedItemIndex = index
+                        } else if (focusedItemIndex == index) {
+                            focusedItemIndex = null
+                        }
+                    }
                     .focusable()
                     .clickable {
                         navController.navigate(item.route) {
