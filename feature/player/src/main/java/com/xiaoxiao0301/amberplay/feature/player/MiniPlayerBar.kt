@@ -2,7 +2,6 @@ package com.xiaoxiao0301.amberplay.feature.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,7 +52,22 @@ fun MiniPlayerBar(
     viewModel: PlayerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.playbackState.collectAsStateWithLifecycle()
-    val song  = state.currentSong ?: return  // 没有歌曲时不显示
+    val song  = state.currentSong
+
+    if (song == null) {
+        // 暂无播放占位行
+        Row(
+            modifier              = modifier
+                .fillMaxWidth()
+                .background(Surface)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Text(text = "暂无播放", fontSize = 15.sp, color = OnSurfaceVariant)
+        }
+        return
+    }
 
     Column(
         modifier = modifier.fillMaxWidth().background(Surface)
@@ -75,35 +89,42 @@ fun MiniPlayerBar(
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // ── 封面（点击跳转播放页） ────────────────────────────
-            AsyncImage(
-                model              = song.picUrl(),
-                contentDescription = song.name,
-                modifier           = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(SurfaceVariant)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
                     .clickable(onClick = onExpand),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // ── 封面（点击跳转播放页） ────────────────────────
+                AsyncImage(
+                    model              = song.picUrl(),
+                    contentDescription = song.name,
+                    modifier           = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(SurfaceVariant),
+                )
 
-            // ── 歌名 + 歌手 ───────────────────────────────────────
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text       = song.name,
-                    fontSize   = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color      = MaterialTheme.colorScheme.onSurface,
-                    maxLines   = 1,
-                    overflow   = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text     = song.artistText,
-                    fontSize = 12.sp,
-                    color    = OnSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                // ── 歌名 + 歌手 ───────────────────────────────────
+                Column {
+                    Text(
+                        text       = song.name,
+                        fontSize   = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color      = MaterialTheme.colorScheme.onSurface,
+                        maxLines   = 1,
+                        overflow   = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text     = song.artistText,
+                        fontSize = 12.sp,
+                        color    = OnSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
 
             // ── 播放控制 ──────────────────────────────────────────
@@ -150,7 +171,6 @@ private fun MiniCtrlBtn(
                 }
             )
             .onFocusChanged { focused = it.isFocused }
-            .focusable()
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,

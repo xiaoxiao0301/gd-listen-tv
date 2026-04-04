@@ -4,7 +4,6 @@ import android.net.Uri
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,15 +16,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -67,7 +63,6 @@ private val NAV_ITEMS = listOf(
     NavItem(Screen.Search.route,    "🔍", "搜索"),
     NavItem(Screen.Playlists.route, "📋", "歌单"),
     NavItem(Screen.Favorites.route, "❤", "收藏"),
-    NavItem(Screen.Queue.route,     "⏭", "队列"),
     NavItem(Screen.Stats.route,     "📊", "统计"),
     NavItem(Screen.Settings.route,  "⚙", "设置"),
 )
@@ -172,7 +167,7 @@ fun AppNavHost() {
                     composable(Screen.Player.route) {
                         PlayerScreen(
                             onClose      = { navController.popBackStack() },
-                            onOpenLyrics = { navController.navigate(Screen.Lyrics.route) },
+                            onOpenQueue  = { navController.navigate(Screen.Queue.route) },
                         )
                     }
                     composable(Screen.Lyrics.route) {
@@ -250,48 +245,20 @@ fun AppNavHost() {
 
 @Composable
 private fun SideNavBar(navController: NavController, currentRoute: String?) {
-    val itemFocusRequesters = remember { NAV_ITEMS.map { FocusRequester() } }
-    var focusedItemIndex by remember { mutableStateOf<Int?>(null) }
-    val expanded = true  // 暂时禁用自动收缩，防止弹出键盘时菜单意外折叠
     val currentBaseRoute = currentRoute?.substringBefore("?")
-    val selectedIndex = remember(currentRoute) {
-        NAV_ITEMS.indexOfFirst { it.route == currentBaseRoute }
-    }
-
-    LaunchedEffect(Unit) {
-        if (selectedIndex >= 0) {
-            itemFocusRequesters[selectedIndex].requestFocus()
-        }
-    }
-
-    LaunchedEffect(focusedItemIndex, currentBaseRoute) {
-        val index = focusedItemIndex ?: return@LaunchedEffect
-        val targetRoute = NAV_ITEMS[index].route
-        if (currentBaseRoute != targetRoute) {
-            navController.navigate(targetRoute) {
-                launchSingleTop = true
-                restoreState    = true
-                popUpTo(navController.graph.startDestinationId) { saveState = true }
-            }
-        }
-    }
 
     Column(
         modifier = Modifier
-            .width(if (expanded) 200.dp else 72.dp)
+            .width(200.dp)
             .fillMaxHeight()
             .background(Surface)
     ) {
-        NAV_ITEMS.forEachIndexed { index, item ->
+        NAV_ITEMS.forEach { item ->
             val selected = currentBaseRoute == item.route
             var focused by remember { mutableStateOf(false) }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(
-                        if (index < itemFocusRequesters.size) Modifier.focusRequester(itemFocusRequesters[index])
-                        else Modifier
-                    )
                     .background(
                         when {
                             selected -> Purple.copy(alpha = 0.2f)
@@ -299,34 +266,35 @@ private fun SideNavBar(navController: NavController, currentRoute: String?) {
                             else     -> Color.Transparent
                         }
                     )
-                    .onFocusChanged {
-                        focused = it.isFocused
-                        if (it.isFocused) {
-                            focusedItemIndex = index
-                        } else if (focusedItemIndex == index) {
-                            focusedItemIndex = null
+                    .onFocusChanged { state ->
+                        focused = state.isFocused
+                        if (state.isFocused && currentBaseRoute != item.route) {
+                            navController.navigate(item.route) {
+                                launchSingleTop = true
+                                restoreState    = true
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            }
                         }
                     }
-                    .focusable()
                     .clickable {
-                        navController.navigate(item.route) {
-                            launchSingleTop = true
-                            restoreState    = true
-                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                        if (currentBaseRoute != item.route) {
+                            navController.navigate(item.route) {
+                                launchSingleTop = true
+                                restoreState    = true
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            }
                         }
                     }
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(item.icon, fontSize = 22.sp)
-                if (expanded) {
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text     = item.label,
-                        fontSize = 16.sp,
-                        color    = if (selected) Purple else MaterialTheme.colorScheme.onSurface,
-                    )
-                }
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text     = item.label,
+                    fontSize = 16.sp,
+                    color    = if (selected) Purple else MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
     }

@@ -21,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,7 +52,6 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val recentSongs   by viewModel.recentSongs.collectAsStateWithLifecycle()
-    val searchHistory by viewModel.searchHistory.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -92,19 +90,7 @@ fun HomeScreen(
             Spacer(Modifier.height(28.dp))
         }
 
-        // ─── 搜索历史 ────────────────────────────────────────────
-        if (searchHistory.isNotEmpty()) {
-            SectionTitle("搜索历史")
-            Spacer(Modifier.height(12.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(searchHistory.take(10)) { keyword ->
-                    SuggestionChip(
-                        onClick = { onSearchKeyword(keyword) },
-                        label   = { Text(keyword, fontSize = 15.sp) },
-                    )
-                }
-            }
-        }
+
     }
 }
 

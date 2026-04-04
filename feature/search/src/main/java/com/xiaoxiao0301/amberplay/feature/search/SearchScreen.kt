@@ -2,7 +2,6 @@ package com.xiaoxiao0301.amberplay.feature.search
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.Box
@@ -91,6 +90,15 @@ fun SearchScreen(
     var selectedIds  by remember { mutableStateOf(setOf<String>()) }
     // 批量"加入歌单"弹窗
     var batchPlaylistPending by remember { mutableStateOf(false) }
+
+    // 收藏状态乐观更新，避免切歌/重组时图标短暂变灰
+    var favoriteUiOverrides by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+
+    LaunchedEffect(favoriteIds) {
+        favoriteUiOverrides = favoriteUiOverrides.filter { (songId, expectedFav) ->
+            (songId in favoriteIds) != expectedFav
+        }
+    }
 
     // 歌手聚合分组模式
     var groupByArtist   by remember { mutableStateOf(false) }
@@ -236,7 +244,7 @@ fun SearchScreen(
                                     items(artistSongs, key = { "song_${it.id}" }) { song ->
                                         SongResultCard(
                                             song            = song,
-                                            isFavorite      = song.id in favoriteIds,
+                                            isFavorite      = favoriteUiOverrides[song.id] ?: (song.id in favoriteIds),
                                             isSelected      = song.id in selectedIds,
                                             multiSelect     = multiSelect,
                                             onClick = {
@@ -247,11 +255,13 @@ fun SearchScreen(
                                                     onSongSelected(song)
                                                 }
                                             },
-                                            onFavorite      = { viewModel.toggleFavorite(song) },
+                                            onFavorite      = {
+                                                val currentFav = favoriteUiOverrides[song.id] ?: (song.id in favoriteIds)
+                                                favoriteUiOverrides = favoriteUiOverrides + (song.id to !currentFav)
+                                                viewModel.toggleFavorite(song)
+                                            },
                                             onPlayNext      = { viewModel.playNext(song) },
                                             onAddToPlaylist = { songForPlaylist = song },
-                                            onAlbumClick    = { onAlbumClick(song.source, song.album) },
-                                            onArtistClick   = { onArtistClick(song.source, song.artistText) },
                                         )
                                     }
                                 }
@@ -269,7 +279,7 @@ fun SearchScreen(
                             itemsIndexed(state.songs) { index, song ->
                                 SongResultCard(
                                     song            = song,
-                                    isFavorite      = song.id in favoriteIds,
+                                    isFavorite      = favoriteUiOverrides[song.id] ?: (song.id in favoriteIds),
                                     isSelected      = song.id in selectedIds,
                                     multiSelect     = multiSelect,
                                     onClick = {
@@ -280,11 +290,13 @@ fun SearchScreen(
                                             onSongSelected(song)
                                         }
                                     },
-                                    onFavorite      = { viewModel.toggleFavorite(song) },
+                                    onFavorite      = {
+                                        val currentFav = favoriteUiOverrides[song.id] ?: (song.id in favoriteIds)
+                                        favoriteUiOverrides = favoriteUiOverrides + (song.id to !currentFav)
+                                        viewModel.toggleFavorite(song)
+                                    },
                                     onPlayNext      = { viewModel.playNext(song) },
                                     onAddToPlaylist = { songForPlaylist = song },
-                                    onAlbumClick    = { onAlbumClick(song.source, song.album) },
-                                    onArtistClick   = { onArtistClick(song.source, song.artistText) },
                                 )
                                 if (index == state.songs.lastIndex && state.hasMore) {
                                     LaunchedEffect(state.page) { viewModel.loadNextPage() }
@@ -325,6 +337,8 @@ fun SearchScreen(
                         .clip(RoundedCornerShape(8.dp))
                         .background(Purple.copy(alpha = 0.15f))
                         .clickable {
+                            favoriteUiOverrides = favoriteUiOverrides +
+                                currentSongs.filter { it.id in selectedIds }.associate { it.id to true }
                             viewModel.addBatchToFavorites(currentSongs.filter { it.id in selectedIds })
                             selectedIds = emptySet()
                             multiSelect = false
@@ -380,6 +394,10 @@ private fun AddToPlaylistDialog(
     onDismiss: () -> Unit,
     onSelect:  (Int) -> Unit,
 ) {
+    var selectedPlaylistId by remember(playlists) {
+        mutableStateOf(playlists.firstOrNull()?.id)
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("加入歌单") },
@@ -390,16 +408,29 @@ private fun AddToPlaylistDialog(
                 Column {
                     playlists.forEach { playlist ->
                         TextButton(
-                            onClick  = { onSelect(playlist.id) },
+                            onClick  = { selectedPlaylistId = playlist.id },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(playlist.name, fontSize = 16.sp)
+                            Text(
+                                text = if (selectedPlaylistId == playlist.id) "✓ ${playlist.name}" else playlist.name,
+                                fontSize = 16.sp,
+                            )
                         }
                     }
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            TextButton(
+                enabled = selectedPlaylistId != null,
+                onClick = {
+                    val id = selectedPlaylistId ?: return@TextButton
+                    onSelect(id)
+                }
+            ) {
+                Text("确认")
+            }
+        },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("取消") }
         },
@@ -416,8 +447,6 @@ private fun SongResultCard(
     onFavorite: () -> Unit,
     onPlayNext: () -> Unit,
     onAddToPlaylist: () -> Unit,
-    onAlbumClick: (() -> Unit)? = null,
-    onArtistClick: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
 
@@ -432,12 +461,16 @@ private fun SongResultCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(rowBg)
-            .clickable(onClick = onClick)
-            .onFocusChanged { focused = it.isFocused }
-            .focusable()
+            .onFocusChanged { focused = it.hasFocus }
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
         // 多选复选标记 / 专辑封面
         if (multiSelect) {
             Box(
@@ -465,7 +498,7 @@ private fun SongResultCard(
 
         Spacer(Modifier.width(16.dp))
 
-        Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f)) {
             Text(
                 text       = song.name,
                 fontSize   = 18.sp,
@@ -479,6 +512,7 @@ private fun SongResultCard(
                 color    = OnSurfaceVariant,
                 maxLines = 1,
             )
+        }
         }
 
         // 收藏按钮
@@ -508,42 +542,7 @@ private fun SongResultCard(
                     .clickable(onClick = onAddToPlaylist)
                     .padding(8.dp),
             )
-
-            // 浏览专辑
-            if (onAlbumClick != null) {
-                Text(
-                    text     = "💿",
-                    fontSize = 18.sp,
-                    modifier = Modifier
-                        .clickable(onClick = onAlbumClick)
-                        .padding(8.dp),
-                )
-            }
-
-            // 浏览歌手
-            if (onArtistClick != null) {
-                Text(
-                    text     = "🎤",
-                    fontSize = 18.sp,
-                    modifier = Modifier
-                        .clickable(onClick = onArtistClick)
-                        .padding(8.dp),
-                )
-            }
         }
-
-        Spacer(Modifier.width(4.dp))
-
-        // 来源角标
-        Text(
-            text     = song.source.take(2).uppercase(),
-            fontSize = 11.sp,
-            color    = Purple,
-            modifier = Modifier
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color(0x337C5CBF))
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-        )
     }
 }
 
@@ -561,9 +560,8 @@ private fun ArtistGroupHeader(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(if (focused) Purple.copy(alpha = 0.15f) else SurfaceVariant)
-            .clickable(onClick = onToggle)
             .onFocusChanged { focused = it.isFocused }
-            .focusable()
+            .clickable(onClick = onToggle)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

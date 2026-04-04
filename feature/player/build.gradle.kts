@@ -27,6 +27,7 @@ dependencies {
     implementation(project(":core:cache"))
     implementation(project(":core:datastore"))
     implementation(project(":core:media"))
+    implementation(project(":feature:lyrics"))
     implementation(libs.datastore.preferences)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
