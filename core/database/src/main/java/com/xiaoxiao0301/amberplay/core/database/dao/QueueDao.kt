@@ -34,9 +34,22 @@ interface QueueDao {
     @Query("DELETE FROM queue_items")
     suspend fun clearQueue()
 
-    /** 在 pos 之后的所有位置 +1（为插队腾出位置） */
-    @Query("UPDATE queue_items SET position = position + 1 WHERE position > :afterPos")
-    suspend fun shiftAfter(afterPos: Int)
+    /** 在 pos 之后的所有位置 +1（为插队腾出位置）
+     *  SQLite 不支持 UPDATE ... ORDER BY，用两步偏移法避免主键冲突：
+     *  1. 先把目标行位移到不会冲突的大偏移区间
+     *  2. 再把偏移区间的行位移回正常值 +1
+     */
+    @Query("UPDATE queue_items SET position = position + 1000000 WHERE position > :afterPos")
+    suspend fun shiftAfterStep1(afterPos: Int)
+
+    @Query("UPDATE queue_items SET position = position - 999999 WHERE position > 1000000")
+    suspend fun shiftAfterStep2()
+
+    @Transaction
+    suspend fun shiftAfter(afterPos: Int) {
+        shiftAfterStep1(afterPos)
+        shiftAfterStep2()
+    }
 
     @Transaction
     suspend fun insertAsNext(afterPos: Int, item: QueueItemEntity) {

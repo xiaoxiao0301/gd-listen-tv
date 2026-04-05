@@ -124,7 +124,7 @@ fun PlayerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 AsyncImage(
-                    model = song?.picUrl(600),
+                    model = song?.picUrl(300),
                     contentDescription = song?.name,
                     modifier = Modifier
                         .size(320.dp)

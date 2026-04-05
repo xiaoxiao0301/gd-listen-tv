@@ -4,7 +4,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -214,7 +214,6 @@ private fun PlaylistRow(
             .background(if (focused) SurfaceVariant else Surface)
             .clickable(onClick = onClick)
             .onFocusChanged { focused = it.isFocused }
-            .focusable()
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -225,7 +224,14 @@ private fun PlaylistRow(
                 color = MaterialTheme.colorScheme.onSurface)
             Text("$songCount 首歌曲", fontSize = 14.sp, color = OnSurfaceVariant)
         }
-        Text("🗑", fontSize = 20.sp, modifier = Modifier.clickable(onClick = onDelete).padding(8.dp))
+        Text(
+            "🗑",
+            fontSize = 20.sp,
+            modifier = Modifier
+                .focusProperties { canFocus = false }
+                .clickable(onClick = onDelete)
+                .padding(8.dp),
+        )
     }
 }
 
@@ -375,7 +381,6 @@ private fun PlaylistSongRow(
             .background(bg)
             .clickable(onClick = onClick)
             .onFocusChanged { focused = it.isFocused }
-            .focusable()
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -405,7 +410,10 @@ private fun PlaylistSongRow(
         }
         if (!multiSelect) {
             Text("✕", fontSize = 18.sp, color = OnSurfaceVariant,
-                modifier = Modifier.clickable(onClick = onRemove).padding(8.dp))
+                modifier = Modifier
+                    .focusProperties { canFocus = false }
+                    .clickable(onClick = onRemove)
+                    .padding(8.dp))
         }
     }
 }

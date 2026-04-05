@@ -256,6 +256,7 @@ private fun SideNavBar(navController: NavController, currentRoute: String?) {
         NAV_ITEMS.forEach { item ->
             val selected = currentBaseRoute == item.route
             var focused by remember { mutableStateOf(false) }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -266,16 +267,7 @@ private fun SideNavBar(navController: NavController, currentRoute: String?) {
                             else     -> Color.Transparent
                         }
                     )
-                    .onFocusChanged { state ->
-                        focused = state.isFocused
-                        if (state.isFocused && currentBaseRoute != item.route) {
-                            navController.navigate(item.route) {
-                                launchSingleTop = true
-                                restoreState    = true
-                                popUpTo(navController.graph.startDestinationId) { saveState = true }
-                            }
-                        }
-                    }
+                    .onFocusChanged { state -> focused = state.isFocused }
                     .clickable {
                         if (currentBaseRoute != item.route) {
                             navController.navigate(item.route) {

@@ -32,11 +32,24 @@ class PicUrlInterceptor : Interceptor {
         val metaResp = chain.proceed(req)
         if (!metaResp.isSuccessful) return metaResp
 
-        val jsonString = metaResp.peekBody(8192).string()
+        // 有些源会直接返回图片流，此时无需二次请求
+        val contentType = metaResp.body?.contentType()?.toString().orEmpty()
+        if (contentType.startsWith("image/")) {
+            return metaResp
+        }
+
+        val jsonString = metaResp.body?.string().orEmpty()
         metaResp.close()
 
         return try {
-            val realUrl = JSONObject(jsonString).getString("url")
+            val urlFromApi = JSONObject(jsonString).optString("url")
+            val realUrl = when {
+                urlFromApi.startsWith("//") -> "https:$urlFromApi"
+                else -> urlFromApi
+            }
+            if (realUrl.isBlank()) {
+                throw IllegalStateException("empty pic url")
+            }
             val imageReq = req.newBuilder().url(realUrl).build()
             chain.proceed(imageReq)
         } catch (_: Exception) {

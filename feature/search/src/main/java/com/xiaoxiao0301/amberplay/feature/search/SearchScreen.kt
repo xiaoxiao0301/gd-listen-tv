@@ -91,15 +91,6 @@ fun SearchScreen(
     // 批量"加入歌单"弹窗
     var batchPlaylistPending by remember { mutableStateOf(false) }
 
-    // 收藏状态乐观更新，避免切歌/重组时图标短暂变灰
-    var favoriteUiOverrides by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
-
-    LaunchedEffect(favoriteIds) {
-        favoriteUiOverrides = favoriteUiOverrides.filter { (songId, expectedFav) ->
-            (songId in favoriteIds) != expectedFav
-        }
-    }
-
     // 歌手聚合分组模式
     var groupByArtist   by remember { mutableStateOf(false) }
     var expandedArtists by remember { mutableStateOf(setOf<String>()) }
@@ -244,7 +235,7 @@ fun SearchScreen(
                                     items(artistSongs, key = { "song_${it.id}" }) { song ->
                                         SongResultCard(
                                             song            = song,
-                                            isFavorite      = favoriteUiOverrides[song.id] ?: (song.id in favoriteIds),
+                                            isFavorite      = song.id in favoriteIds,
                                             isSelected      = song.id in selectedIds,
                                             multiSelect     = multiSelect,
                                             onClick = {
@@ -255,11 +246,7 @@ fun SearchScreen(
                                                     onSongSelected(song)
                                                 }
                                             },
-                                            onFavorite      = {
-                                                val currentFav = favoriteUiOverrides[song.id] ?: (song.id in favoriteIds)
-                                                favoriteUiOverrides = favoriteUiOverrides + (song.id to !currentFav)
-                                                viewModel.toggleFavorite(song)
-                                            },
+                                            onFavorite      = { viewModel.toggleFavorite(song) },
                                             onPlayNext      = { viewModel.playNext(song) },
                                             onAddToPlaylist = { songForPlaylist = song },
                                         )
@@ -279,7 +266,7 @@ fun SearchScreen(
                             itemsIndexed(state.songs) { index, song ->
                                 SongResultCard(
                                     song            = song,
-                                    isFavorite      = favoriteUiOverrides[song.id] ?: (song.id in favoriteIds),
+                                    isFavorite      = song.id in favoriteIds,
                                     isSelected      = song.id in selectedIds,
                                     multiSelect     = multiSelect,
                                     onClick = {
@@ -290,11 +277,7 @@ fun SearchScreen(
                                             onSongSelected(song)
                                         }
                                     },
-                                    onFavorite      = {
-                                        val currentFav = favoriteUiOverrides[song.id] ?: (song.id in favoriteIds)
-                                        favoriteUiOverrides = favoriteUiOverrides + (song.id to !currentFav)
-                                        viewModel.toggleFavorite(song)
-                                    },
+                                    onFavorite      = { viewModel.toggleFavorite(song) },
                                     onPlayNext      = { viewModel.playNext(song) },
                                     onAddToPlaylist = { songForPlaylist = song },
                                 )
@@ -337,8 +320,6 @@ fun SearchScreen(
                         .clip(RoundedCornerShape(8.dp))
                         .background(Purple.copy(alpha = 0.15f))
                         .clickable {
-                            favoriteUiOverrides = favoriteUiOverrides +
-                                currentSongs.filter { it.id in selectedIds }.associate { it.id to true }
                             viewModel.addBatchToFavorites(currentSongs.filter { it.id in selectedIds })
                             selectedIds = emptySet()
                             multiSelect = false

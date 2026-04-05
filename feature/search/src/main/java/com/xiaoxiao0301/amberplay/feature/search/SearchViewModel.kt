@@ -21,8 +21,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -39,7 +41,7 @@ class SearchViewModel @Inject constructor(
     private val searchUseCase:   SearchMusicUseCase,
     private val historyRepo:     HistoryRepository,
     private val favoriteRepo:    FavoriteRepository,
-    private val toggleFavorite:  ToggleFavoriteUseCase,
+    private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val rateLimiter:     RateLimiter,
     private val playlistRepo:    PlaylistRepository,
     private val queueRepo:       QueueRepository,
@@ -55,9 +57,26 @@ class SearchViewModel @Inject constructor(
     val searchHistory = historyRepo.getSearchHistory()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** 已收藏歌曲的 ID 集合，用于 UI 中显示 ❤ 状态 */
-    val favoriteIds: StateFlow<Set<String>> = favoriteRepo.getFavorites()
+    private val dbFavoriteIds: StateFlow<Set<String>> = favoriteRepo.getFavorites()
         .map { songs -> songs.map { it.id }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    /**
+     * 乐观覆盖：songId -> 目标收藏状态。
+     * 用于消除 DB 流写入延迟期间的 UI 抖动（红心瞬间变灰）。
+     */
+    private val _favoriteOverrides = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+
+    /** 已收藏歌曲 ID 集合 = DB 状态 + 乐观覆盖 */
+    val favoriteIds: StateFlow<Set<String>> =
+        combine(dbFavoriteIds, _favoriteOverrides) { dbFavs, overrides ->
+            buildSet {
+                addAll(dbFavs)
+                overrides.forEach { (songId, shouldFav) ->
+                    if (shouldFav) add(songId) else remove(songId)
+                }
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     /** 所有歌单（用于"加入歌单"弹窗） */
@@ -75,6 +94,20 @@ class SearchViewModel @Inject constructor(
                     _rateLimitWarning.emit(event.waitSeconds)
                 }
             }
+        }
+
+        // 当 DB 状态追平乐观覆盖后，自动回收覆盖项
+        viewModelScope.launch {
+            combine(dbFavoriteIds, _favoriteOverrides) { db, overrides -> db to overrides }
+                .collect { (db, overrides) ->
+                    if (overrides.isEmpty()) return@collect
+                    val syncedIds = overrides
+                        .filter { (songId, targetFav) -> (songId in db) == targetFav }
+                        .keys
+                    if (syncedIds.isNotEmpty()) {
+                        _favoriteOverrides.update { current -> current - syncedIds }
+                    }
+                }
         }
     }
 
@@ -117,9 +150,17 @@ class SearchViewModel @Inject constructor(
     }
 
     fun toggleFavorite(song: Song) {
+        val alreadyFav = song.id in favoriteIds.value
+        val targetFav = !alreadyFav
+        _favoriteOverrides.update { it + (song.id to targetFav) }
+
         viewModelScope.launch {
-            val isFav = song.id in favoriteIds.value
-            toggleFavorite(song, isFav)
+            runCatching {
+                toggleFavoriteUseCase(song, alreadyFav)
+            }.onFailure {
+                // 失败时立即回滚，避免 UI 长时间显示错误状态
+                _favoriteOverrides.update { current -> current - song.id }
+            }
         }
     }
 
@@ -140,7 +181,13 @@ class SearchViewModel @Inject constructor(
     fun addBatchToFavorites(songs: List<Song>) {
         viewModelScope.launch {
             songs.filter { it.id !in favoriteIds.value }
-                 .forEach { song -> toggleFavorite(song, false) }
+                .forEach { song ->
+                    _favoriteOverrides.update { it + (song.id to true) }
+                    runCatching { toggleFavoriteUseCase(song, false) }
+                        .onFailure {
+                            _favoriteOverrides.update { current -> current - song.id }
+                        }
+                }
         }
     }
 
