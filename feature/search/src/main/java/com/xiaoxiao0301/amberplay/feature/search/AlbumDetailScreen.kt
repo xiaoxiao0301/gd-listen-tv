@@ -60,7 +60,7 @@ fun AlbumDetailScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 48.dp, vertical = 24.dp),
+            .padding(horizontal = 48.dp, vertical = 28.dp),
     ) {
         Row(
             modifier          = Modifier.fillMaxWidth(),

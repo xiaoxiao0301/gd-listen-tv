@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,12 +40,16 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.xiaoxiao0301.amberplay.core.common.theme.Amber
+import com.xiaoxiao0301.amberplay.core.common.theme.AmberContainer
+import com.xiaoxiao0301.amberplay.core.common.theme.OnSurface
 import com.xiaoxiao0301.amberplay.core.common.theme.OnSurfaceVariant
+import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceContainerHigh
+import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceContainerLow
 import com.xiaoxiao0301.amberplay.core.common.ui.picUrl
-import com.xiaoxiao0301.amberplay.core.common.theme.Purple
-import com.xiaoxiao0301.amberplay.core.common.theme.Surface
-import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceVariant
 import com.xiaoxiao0301.amberplay.domain.model.Song
+
+private val QUICK_CHIPS = listOf("周杰伦", "爵士乐", "落日飞车", "城市民谣", "复古合成器")
 
 @Composable
 fun HomeScreen(
@@ -51,110 +57,192 @@ fun HomeScreen(
     onSearchKeyword: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    val recentSongs   by viewModel.recentSongs.collectAsStateWithLifecycle()
+    val recentSongs by viewModel.recentSongs.collectAsStateWithLifecycle()
+    var keyword by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 48.dp, vertical = 24.dp)
+            .padding(horizontal = 48.dp, vertical = 32.dp)
             .verticalScroll(rememberScrollState()),
     ) {
-        Text(
-            text       = "主页",
-            fontSize   = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color      = MaterialTheme.colorScheme.onSurface,
+        SearchInput(
+            query = keyword,
+            onQueryChange = { keyword = it },
+            onSearch = {
+                val q = keyword.trim()
+                if (q.isNotEmpty()) onSearchKeyword(q)
+            },
         )
-        Spacer(Modifier.height(24.dp))
 
-        // ─── 最近播放 ────────────────────────────────────────────
-        if (recentSongs.isNotEmpty()) {
-            SectionTitle("最近播放")
-            Spacer(Modifier.height(12.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding        = PaddingValues(end = 16.dp),
+        Spacer(Modifier.height(18.dp))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            QUICK_CHIPS.forEach { chip ->
+                HistoryChip(text = chip) {
+                    keyword = chip
+                    onSearchKeyword(chip)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(42.dp))
+
+        Text(
+            text = "最近播放",
+            fontSize = 42.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = OnSurface,
+        )
+        Spacer(Modifier.height(18.dp))
+
+        if (recentSongs.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(SurfaceContainerLow),
+                contentAlignment = Alignment.Center,
             ) {
-                items(recentSongs) { song ->
+                Text("暂无播放记录", color = OnSurfaceVariant, fontSize = 18.sp)
+            }
+        } else {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+                contentPadding = PaddingValues(end = 24.dp),
+            ) {
+                items(recentSongs.take(8)) { song ->
                     RecentSongCard(song = song, onClick = { onSongSelected(song) })
                 }
             }
-            Spacer(Modifier.height(28.dp))
-        } else {
-            Box(
-                modifier            = Modifier.fillMaxWidth().height(120.dp),
-                contentAlignment    = Alignment.Center,
-            ) {
-                Text("暂无播放记录，去搜索一些歌曲吧 🎵", color = OnSurfaceVariant, fontSize = 16.sp)
-            }
-            Spacer(Modifier.height(28.dp))
         }
 
-
+        Spacer(Modifier.height(28.dp))
     }
 }
 
 @Composable
-private fun SectionTitle(title: String) {
+private fun SearchInput(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .clip(RoundedCornerShape(32.dp))
+            .background(SurfaceContainerHigh)
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("⌕", fontSize = 20.sp, color = OnSurfaceVariant)
+        Spacer(Modifier.width(14.dp))
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = OnSurface),
+            modifier = Modifier.weight(1f),
+            decorationBox = { inner ->
+                if (query.isBlank()) {
+                    Text("搜索歌曲、歌手", color = OnSurfaceVariant, fontSize = 18.sp)
+                }
+                inner()
+            },
+        )
+        Text(
+            text = "搜索",
+            color = Amber,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .clip(RoundedCornerShape(18.dp))
+                .clickable(onClick = onSearch)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+        )
+    }
+}
+
+@Composable
+private fun HistoryChip(text: String, onClick: () -> Unit) {
     Text(
-        text       = title,
-        fontSize   = 20.sp,
-        fontWeight = FontWeight.SemiBold,
-        color      = MaterialTheme.colorScheme.onSurface,
+        text = text,
+        color = OnSurfaceVariant,
+        fontSize = 13.sp,
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(SurfaceContainerHigh)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
     )
 }
 
 @Composable
 private fun RecentSongCard(song: Song, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val picUrl = song.picUrl()
 
     Column(
         modifier = Modifier
-            .width(130.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (focused) SurfaceVariant else Surface)
+            .width(256.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(if (focused) AmberContainer else SurfaceContainerLow)
             .clickable(onClick = onClick)
             .onFocusChanged { focused = it.isFocused }
             .focusable()
-            .padding(10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(16.dp),
     ) {
-        AsyncImage(
-            model              = picUrl,
-            contentDescription = song.name,
-            modifier           = Modifier
-                .size(110.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(SurfaceVariant),
+        Box {
+            AsyncImage(
+                model = song.picUrl(),
+                contentDescription = song.name,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White),
+            )
+            if (focused) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0x22000000)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("▶", color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = song.name,
+            color = OnSurface,
+            fontSize = 21.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = song.artistText,
+            color = OnSurfaceVariant,
+            fontSize = 15.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text     = song.name,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color    = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text     = song.artistText,
-            fontSize = 12.sp,
-            color    = OnSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(4.dp))
-        // 来源角标
-        Text(
-            text     = song.source.take(2).uppercase(),
-            fontSize = 10.sp,
-            color    = Purple,
+            text = song.source.take(2).uppercase(),
+            color = Amber,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier
-                .clip(RoundedCornerShape(4.dp))
-                .background(androidx.compose.ui.graphics.Color(0x337C5CBF))
-                .padding(horizontal = 5.dp, vertical = 1.dp),
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0x33F5D7A1))
+                .padding(horizontal = 8.dp, vertical = 4.dp),
         )
     }
 }
-

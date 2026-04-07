@@ -1,6 +1,7 @@
 package com.xiaoxiao0301.amberplay.feature.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,8 +13,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +36,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,61 +45,58 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.xiaoxiao0301.amberplay.core.common.theme.Amber
+import com.xiaoxiao0301.amberplay.core.common.theme.AmberContainer
+import com.xiaoxiao0301.amberplay.core.common.theme.OnSurface
 import com.xiaoxiao0301.amberplay.core.common.theme.OnSurfaceVariant
-import com.xiaoxiao0301.amberplay.core.common.ui.picUrl
-import com.xiaoxiao0301.amberplay.core.common.theme.Purple
 import com.xiaoxiao0301.amberplay.core.common.theme.Surface
-import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceVariant
-import com.xiaoxiao0301.amberplay.core.media.PlayMode
+import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceContainerHigh
+import com.xiaoxiao0301.amberplay.core.common.theme.SurfaceContainerLow
+import com.xiaoxiao0301.amberplay.core.common.ui.picUrl
 
-/**
- * 底部迷你播放控制栏 — QQ Music 桌面版风格
- *
- * 布局：[封面] [歌名/歌手 | 进度条] [⏮ ⏸/▶ ⏭] [播放模式] [展开↗]
- */
 @Composable
 fun MiniPlayerBar(
     modifier: Modifier = Modifier,
     onExpand: () -> Unit = {},
+    onOpenQueue: () -> Unit = {},
     viewModel: PlayerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.playbackState.collectAsStateWithLifecycle()
-    val song  = state.currentSong
+    val song = state.currentSong
 
     if (song == null) {
-        // 暂无播放占位行
         Row(
-            modifier              = modifier
+            modifier = modifier
+                .height(96.dp)
                 .fillMaxWidth()
-                .background(Surface)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment     = Alignment.CenterVertically,
+                .background(SurfaceContainerHigh)
+                .padding(horizontal = 24.dp, vertical = 20.dp),
             horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = "暂无播放", fontSize = 15.sp, color = OnSurfaceVariant)
+            Text("暂无播放", color = OnSurfaceVariant, fontSize = 16.sp)
         }
         return
     }
 
     Column(
-        modifier = modifier.fillMaxWidth().background(Surface)
+        modifier = modifier
+            .height(96.dp)
+            .fillMaxWidth()
+            .background(Surface.copy(alpha = 0.95f))
+            .border(1.dp, OnSurfaceVariant.copy(alpha = 0.10f)),
     ) {
-        // ── 顶部进度条 ────────────────────────────────────────────
-        if (state.durationMs > 0) {
-            LinearProgressIndicator(
-                progress   = { state.positionMs.toFloat() / state.durationMs.toFloat() },
-                modifier   = Modifier.fillMaxWidth().height(2.dp),
-                color      = Purple,
-                trackColor = Color.Transparent,
-            )
-        }
+        val progress = if (state.durationMs > 0) {
+            state.positionMs.toFloat() / state.durationMs.toFloat()
+        } else 0f
+        val positionText = formatMiniMs(state.positionMs)
+        val durationText = formatMiniMs(state.durationMs)
 
         Row(
-            modifier              = Modifier
+            modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 22.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
                 modifier = Modifier
@@ -96,91 +105,137 @@ fun MiniPlayerBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                // ── 封面（点击跳转播放页） ────────────────────────
                 AsyncImage(
-                    model              = song.picUrl(),
+                    model = song.picUrl(),
                     contentDescription = song.name,
-                    modifier           = Modifier
+                    modifier = Modifier
                         .size(56.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(SurfaceVariant),
+                        .background(SurfaceContainerLow),
                 )
-
-                // ── 歌名 + 歌手 ───────────────────────────────────
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text       = song.name,
-                        fontSize   = 15.sp,
+                        text = song.name,
+                        color = OnSurface,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color      = MaterialTheme.colorScheme.onSurface,
-                        maxLines   = 1,
-                        overflow   = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(2.dp))
                     Text(
-                        text     = song.artistText,
+                        text = song.artistText,
+                        color = OnSurfaceVariant,
                         fontSize = 12.sp,
-                        color    = OnSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
 
-            // ── 播放控制 ──────────────────────────────────────────
-            MiniCtrlBtn("⏮") { viewModel.skipPrevious() }
-            MiniCtrlBtn(
-                label     = if (state.isPlaying) "⏸" else "▶",
-                isPrimary = true,
-            ) { viewModel.playOrPause() }
-            MiniCtrlBtn("⏭") { viewModel.skipNext() }
-
-            // ── 播放模式切换 ──────────────────────────────────────
-            val modeLabel = when (state.playMode) {
-                PlayMode.SEQUENTIAL -> "顺序"
-                PlayMode.REPEAT_ALL -> "循环"
-                PlayMode.REPEAT_ONE -> "单曲"
-                PlayMode.SHUFFLE    -> "随机"
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MiniIconBtn(Icons.Filled.SkipPrevious) { viewModel.skipPrevious() }
+                    Spacer(Modifier.width(8.dp))
+                    MiniIconBtn(
+                        icon = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        primary = true,
+                    ) { viewModel.playOrPause() }
+                    Spacer(Modifier.width(8.dp))
+                    MiniIconBtn(Icons.Filled.SkipNext) { viewModel.skipNext() }
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(0.74f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        positionText,
+                        color = OnSurfaceVariant,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(AmberContainer),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(Amber),
+                        )
+                    }
+                    Text(
+                        durationText,
+                        color = OnSurfaceVariant,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
-            val modeActive = state.playMode == PlayMode.SHUFFLE
-            MiniCtrlBtn(modeLabel, isActive = modeActive) { viewModel.cyclePlayMode() }
 
-            // ── 展开到全屏播放页 ──────────────────────────────────
-            MiniCtrlBtn("⤢") { onExpand() }
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MiniIconBtn(Icons.Filled.FavoriteBorder) { }
+                Spacer(Modifier.width(8.dp))
+                MiniIconBtn(Icons.AutoMirrored.Filled.QueueMusic) { onOpenQueue() }
+                Spacer(Modifier.width(8.dp))
+                MiniIconBtn(Icons.Filled.OpenInFull) { onExpand() }
+            }
         }
     }
 }
 
 @Composable
-private fun MiniCtrlBtn(
-    label: String,
-    isPrimary: Boolean = false,
-    isActive: Boolean = false,
+private fun MiniIconBtn(
+    icon: ImageVector,
+    primary: Boolean = false,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .size(if (primary) 52.dp else 40.dp)
+            .clip(CircleShape)
             .background(
                 when {
-                    isPrimary -> Purple
-                    isActive  -> Purple.copy(alpha = 0.25f)
-                    focused   -> SurfaceVariant
-                    else      -> Color.Transparent
+                    primary -> Amber
+                    focused -> AmberContainer
+                    else -> Color.Transparent
                 }
             )
             .onFocusChanged { focused = it.isFocused }
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text      = label,
-            fontSize  = if (isPrimary) 22.sp else 18.sp,
-            color     = if (isPrimary || isActive) Color.White else MaterialTheme.colorScheme.onSurface,
-            fontWeight = if (isPrimary) FontWeight.Bold else FontWeight.Normal,
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (primary) Color.White else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(if (primary) 28.dp else 20.dp),
         )
     }
 }
 
+private fun formatMiniMs(ms: Long): String {
+    val total = (ms / 1000).coerceAtLeast(0L)
+    val m = total / 60
+    val s = total % 60
+    return "%d:%02d".format(m, s)
+}

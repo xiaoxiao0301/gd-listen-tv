@@ -6,6 +6,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 val AmberTypography = Typography(
+    displayLarge = TextStyle(fontSize = 56.sp, fontWeight = FontWeight.ExtraBold),
+    displayMedium = TextStyle(fontSize = 42.sp, fontWeight = FontWeight.ExtraBold),
+    displaySmall = TextStyle(fontSize = 32.sp, fontWeight = FontWeight.Bold),
+    headlineLarge = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Bold),
+    headlineMedium = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
+    headlineSmall = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold),
     bodyLarge   = TextStyle(fontSize = 18.sp),
     bodyMedium  = TextStyle(fontSize = 16.sp),
     bodySmall   = TextStyle(fontSize = 14.sp),
